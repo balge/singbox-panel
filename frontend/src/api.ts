@@ -33,7 +33,17 @@ export async function putConfig(config: Record<string, unknown>): Promise<void> 
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(config),
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) {
+    const text = await r.text();
+    let detail = text;
+    try {
+      const j = JSON.parse(text) as { detail?: string };
+      if (j.detail) detail = j.detail;
+    } catch {
+      /* use text as-is */
+    }
+    throw new Error(detail || `HTTP ${r.status}`);
+  }
 }
 
 export async function getPanelConfig<T = Record<string, unknown>>(): Promise<T> {

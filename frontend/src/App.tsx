@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Provider as JotaiProvider } from 'jotai';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { AuthProvider, useAuth } from './AuthContext';
@@ -45,13 +46,15 @@ function AppRoutes() {
 
 function App() {
   return (
-    <ConfigProvider locale={zhCN}>
-      <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </AuthProvider>
-    </ConfigProvider>
+    <JotaiProvider>
+      <ConfigProvider locale={zhCN}>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </AuthProvider>
+      </ConfigProvider>
+    </JotaiProvider>
   );
 }
 
