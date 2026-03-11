@@ -10,6 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { configApi } from "@/lib/api"
 import {
@@ -18,6 +25,7 @@ import {
   DNS_TOP_SCHEMA,
   type DnsConfigState,
   type DnsRule,
+  type DnsRuleAction,
   type DnsServer,
   mergeDnsFromJson,
   validateDns,
@@ -328,8 +336,22 @@ export function DnsPage() {
                     >
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <span className="font-mono text-sm">
-                          server: {item.server || "(未设置)"}
-                          {item.outbound ? ` · outbound: ${item.outbound}` : ""}
+                          {(() => {
+                            const s =
+                              item.server ??
+                              (item.action &&
+                              typeof item.action === "object" &&
+                              "action" in item.action &&
+                              (item.action as DnsRuleAction).action === "route"
+                                ? (item.action as { server?: string }).server
+                                : undefined);
+                            return `server: ${s ?? "(未设置)"}`;
+                          })()}
+                          {item.action &&
+                            typeof item.action === "object" &&
+                            "action" in item.action
+                            ? ` · action: ${(item.action as DnsRuleAction).action}`
+                            : ""}
                           {item.clash_mode
                             ? ` · clash_mode: ${item.clash_mode}`
                             : ""}
@@ -528,43 +550,266 @@ function AddRuleForm({
   onSave: (r: DnsRule) => void
   onCancel: () => void
 }) {
-  const [server, setServer] = useState(rule.server ?? "")
-  const [outbound, setOutbound] = useState(rule.outbound ?? "")
+  const act = rule.action
+  const actionKind =
+    act && typeof act === "object" && "action" in act
+      ? (act as DnsRuleAction).action
+      : "route"
+  const [actionType, setActionType] = useState<
+    "route" | "route-options" | "reject" | "predefined"
+  >(actionKind)
+  const [server, setServer] = useState(
+    rule.server ?? (actionKind === "route" && act && "server" in act ? (act as { server?: string }).server ?? "" : "")
+  )
+  const [strategy, setStrategy] = useState(
+    actionKind === "route" && act && "strategy" in act ? String((act as { strategy?: string }).strategy ?? "") : ""
+  )
+  const [disable_cache, setDisableCache] = useState(
+    (act && "disable_cache" in act && (act as { disable_cache?: boolean }).disable_cache) ?? false
+  )
+  const [rewrite_ttl, setRewriteTtl] = useState(
+    act && "rewrite_ttl" in act ? String((act as { rewrite_ttl?: number | null }).rewrite_ttl ?? "") : ""
+  )
+  const [client_subnet, setClientSubnet] = useState(
+    act && "client_subnet" in act ? String((act as { client_subnet?: string | null }).client_subnet ?? "") : ""
+  )
+  const [method, setMethod] = useState<"default" | "drop">(
+    actionKind === "reject" && act && "method" in act
+      ? ((act as { method?: "default" | "drop" }).method ?? "default")
+      : "default"
+  )
+  const [no_drop, setNoDrop] = useState(
+    actionKind === "reject" && act && "no_drop" in act ? Boolean((act as { no_drop?: boolean }).no_drop) : false
+  )
+  const [rcode, setRcode] = useState(
+    actionKind === "predefined" && act && "rcode" in act ? String((act as { rcode?: string }).rcode ?? "") : "NOERROR"
+  )
+  const [answer, setAnswer] = useState(
+    actionKind === "predefined" && act && "answer" in act ? arrToStr((act as { answer?: string[] }).answer) : ""
+  )
+  const [ns, setNs] = useState(
+    actionKind === "predefined" && act && "ns" in act ? arrToStr((act as { ns?: string[] }).ns) : ""
+  )
+  const [extra, setExtra] = useState(
+    actionKind === "predefined" && act && "extra" in act ? arrToStr((act as { extra?: string[] }).extra) : ""
+  )
   const [clash_mode, setClashMode] = useState(rule.clash_mode ?? "")
   const [rule_set, setRuleSet] = useState(arrToStr(rule.rule_set))
   const [package_name, setPackageName] = useState(arrToStr(rule.package_name))
 
   const handleSave = () => {
-    onSave({
+    const base: DnsRule = {
       ...rule,
-      server: server || undefined,
-      outbound: outbound || undefined,
       clash_mode: clash_mode || undefined,
       rule_set: strToArr(rule_set).length ? strToArr(rule_set) : undefined,
-      package_name: strToArr(package_name).length
-        ? strToArr(package_name)
-        : undefined,
-    })
+      package_name: strToArr(package_name).length ? strToArr(package_name) : undefined,
+    }
+    if (actionType === "route") {
+      const s = server.trim()
+      base.server = s || undefined
+      if (strategy.trim() || disable_cache || rewrite_ttl.trim() || client_subnet.trim()) {
+        base.action = {
+          action: "route",
+          server: s || "",
+          ...(strategy.trim() && { strategy: strategy.trim() }),
+          ...(disable_cache && { disable_cache: true }),
+          ...(rewrite_ttl.trim() && { rewrite_ttl: Number(rewrite_ttl) || null }),
+          ...(client_subnet.trim() && { client_subnet: client_subnet.trim() || null }),
+        }
+      } else {
+        delete base.action
+      }
+    } else if (actionType === "route-options") {
+      base.action = {
+        action: "route-options",
+        ...(disable_cache && { disable_cache: true }),
+        ...(rewrite_ttl.trim() && { rewrite_ttl: Number(rewrite_ttl) || null }),
+        ...(client_subnet.trim() && { client_subnet: client_subnet.trim() || null }),
+      }
+      delete base.server
+    } else if (actionType === "reject") {
+      base.action = { action: "reject", method, ...(no_drop && { no_drop: true }) }
+      delete base.server
+    } else {
+      base.action = {
+        action: "predefined",
+        rcode: rcode.trim() || undefined,
+        answer: strToArr(answer).length ? strToArr(answer) : undefined,
+        ns: strToArr(ns).length ? strToArr(ns) : undefined,
+        extra: strToArr(extra).length ? strToArr(extra) : undefined,
+      }
+      delete base.server
+    }
+    onSave(base)
   }
+
+  const textareaClass =
+    "min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
   return (
     <div className="grid gap-3">
       <div className="space-y-1">
-        <Label>{DNS_RULE_FIELD_LABELS.server}</Label>
-        <Input
-          value={server}
-          onChange={(e) => setServer(e.target.value)}
-          placeholder="DNS 服务器 tag"
-        />
+        <Label>{DNS_RULE_FIELD_LABELS.action}</Label>
+        <Select
+          value={actionType}
+          onValueChange={(v) => setActionType(v as "route" | "route-options" | "reject" | "predefined")}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="route">{DNS_RULE_FIELD_LABELS.action_route}</SelectItem>
+            <SelectItem value="route-options">{DNS_RULE_FIELD_LABELS.action_route_options}</SelectItem>
+            <SelectItem value="reject">{DNS_RULE_FIELD_LABELS.action_reject}</SelectItem>
+            <SelectItem value="predefined">{DNS_RULE_FIELD_LABELS.action_predefined}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      <div className="space-y-1">
-        <Label>{DNS_RULE_FIELD_LABELS.outbound}</Label>
-        <Input
-          value={outbound}
-          onChange={(e) => setOutbound(e.target.value)}
-          placeholder="如 any"
-        />
-      </div>
+
+      {actionType === "route" && (
+        <>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_server}</Label>
+            <Input
+              value={server}
+              onChange={(e) => setServer(e.target.value)}
+              placeholder="DNS 服务器 tag，必填"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_strategy}</Label>
+            <Input
+              value={strategy}
+              onChange={(e) => setStrategy(e.target.value)}
+              placeholder="prefer_ipv4 / prefer_ipv6 / ipv4_only / ipv6_only"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="add-route-disable-cache"
+              checked={disable_cache}
+              onChange={(e) => setDisableCache(e.target.checked)}
+            />
+            <Label htmlFor="add-route-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_rewrite_ttl}</Label>
+            <Input
+              type="number"
+              value={rewrite_ttl}
+              onChange={(e) => setRewriteTtl(e.target.value)}
+              placeholder="数字或留空"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_client_subnet}</Label>
+            <Input
+              value={client_subnet}
+              onChange={(e) => setClientSubnet(e.target.value)}
+              placeholder="如 127.0.0.1/24"
+            />
+          </div>
+        </>
+      )}
+
+      {actionType === "route-options" && (
+        <>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="add-route-opt-disable-cache"
+              checked={disable_cache}
+              onChange={(e) => setDisableCache(e.target.checked)}
+            />
+            <Label htmlFor="add-route-opt-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_rewrite_ttl}</Label>
+            <Input
+              type="number"
+              value={rewrite_ttl}
+              onChange={(e) => setRewriteTtl(e.target.value)}
+              placeholder="数字或留空"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_client_subnet}</Label>
+            <Input
+              value={client_subnet}
+              onChange={(e) => setClientSubnet(e.target.value)}
+              placeholder="如 127.0.0.1/24"
+            />
+          </div>
+        </>
+      )}
+
+      {actionType === "reject" && (
+        <>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_method}</Label>
+            <Select value={method} onValueChange={(v) => setMethod(v as "default" | "drop")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">default（REFUSED）</SelectItem>
+                <SelectItem value="drop">drop</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="add-reject-no-drop"
+              checked={no_drop}
+              onChange={(e) => setNoDrop(e.target.checked)}
+            />
+            <Label htmlFor="add-reject-no-drop">{DNS_RULE_FIELD_LABELS.action_no_drop}</Label>
+          </div>
+        </>
+      )}
+
+      {actionType === "predefined" && (
+        <>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_rcode}</Label>
+            <Input
+              value={rcode}
+              onChange={(e) => setRcode(e.target.value)}
+              placeholder="NOERROR / NXDOMAIN / REFUSED 等"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_answer}</Label>
+            <textarea
+              className={textareaClass}
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              placeholder="如 localhost. IN A 127.0.0.1"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_ns}</Label>
+            <textarea
+              className={textareaClass}
+              value={ns}
+              onChange={(e) => setNs(e.target.value)}
+              placeholder="每行一条"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_extra}</Label>
+            <textarea
+              className={textareaClass}
+              value={extra}
+              onChange={(e) => setExtra(e.target.value)}
+              placeholder="每行一条"
+            />
+          </div>
+        </>
+      )}
+
       <div className="space-y-1">
         <Label>{DNS_RULE_FIELD_LABELS.clash_mode}</Label>
         <Input
@@ -576,7 +821,7 @@ function AddRuleForm({
       <div className="space-y-1">
         <Label>{DNS_RULE_FIELD_LABELS.rule_set}</Label>
         <textarea
-          className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className={textareaClass}
           value={rule_set}
           onChange={(e) => setRuleSet(e.target.value)}
           placeholder="如 geosite:cn"
@@ -698,45 +943,272 @@ function RuleForm({
   onSave: (r: DnsRule) => void
   onCancel: () => void
 }) {
-  const [server, setServer] = useState(rule.server ?? "")
-  const [outbound, setOutbound] = useState(rule.outbound ?? "")
+  const act = rule.action
+  const actionKind =
+    act && typeof act === "object" && "action" in act
+      ? (act as DnsRuleAction).action
+      : "route"
+  const [actionType, setActionType] = useState<
+    "route" | "route-options" | "reject" | "predefined"
+  >(actionKind)
+  const [server, setServer] = useState(
+    rule.server ?? (actionKind === "route" && act && "server" in act ? (act as { server?: string }).server ?? "" : "")
+  )
+  const [strategy, setStrategy] = useState(
+    actionKind === "route" && act && "strategy" in act ? String((act as { strategy?: string }).strategy ?? "") : ""
+  )
+  const [disable_cache, setDisableCache] = useState(
+    (act && "disable_cache" in act && (act as { disable_cache?: boolean }).disable_cache) ?? false
+  )
+  const [rewrite_ttl, setRewriteTtl] = useState(
+    act && "rewrite_ttl" in act ? String((act as { rewrite_ttl?: number | null }).rewrite_ttl ?? "") : ""
+  )
+  const [client_subnet, setClientSubnet] = useState(
+    act && "client_subnet" in act ? String((act as { client_subnet?: string | null }).client_subnet ?? "") : ""
+  )
+  const [method, setMethod] = useState<"default" | "drop">(
+    actionKind === "reject" && act && "method" in act
+      ? ((act as { method?: "default" | "drop" }).method ?? "default")
+      : "default"
+  )
+  const [no_drop, setNoDrop] = useState(
+    actionKind === "reject" && act && "no_drop" in act ? Boolean((act as { no_drop?: boolean }).no_drop) : false
+  )
+  const [rcode, setRcode] = useState(
+    actionKind === "predefined" && act && "rcode" in act ? String((act as { rcode?: string }).rcode ?? "") : "NOERROR"
+  )
+  const [answer, setAnswer] = useState(
+    actionKind === "predefined" && act && "answer" in act ? arrToStr((act as { answer?: string[] }).answer) : ""
+  )
+  const [ns, setNs] = useState(
+    actionKind === "predefined" && act && "ns" in act ? arrToStr((act as { ns?: string[] }).ns) : ""
+  )
+  const [extra, setExtra] = useState(
+    actionKind === "predefined" && act && "extra" in act ? arrToStr((act as { extra?: string[] }).extra) : ""
+  )
   const [clash_mode, setClashMode] = useState(rule.clash_mode ?? "")
   const [rule_set, setRuleSet] = useState(arrToStr(rule.rule_set))
   const [package_name, setPackageName] = useState(arrToStr(rule.package_name))
 
   const handleSave = () => {
-    onSave({
+    const base: DnsRule = {
       ...rule,
-      server: server || undefined,
-      outbound: outbound || undefined,
       clash_mode: clash_mode || undefined,
       rule_set: strToArr(rule_set).length ? strToArr(rule_set) : undefined,
-      package_name: strToArr(package_name).length
-        ? strToArr(package_name)
-        : undefined,
-    })
+      package_name: strToArr(package_name).length ? strToArr(package_name) : undefined,
+    }
+    if (actionType === "route") {
+      const s = server.trim()
+      base.server = s || undefined
+      if (strategy.trim() || disable_cache || rewrite_ttl.trim() || client_subnet.trim()) {
+        base.action = {
+          action: "route",
+          server: s || "",
+          ...(strategy.trim() && { strategy: strategy.trim() }),
+          ...(disable_cache && { disable_cache: true }),
+          ...(rewrite_ttl.trim() && { rewrite_ttl: Number(rewrite_ttl) || null }),
+          ...(client_subnet.trim() && { client_subnet: client_subnet.trim() || null }),
+        }
+      } else {
+        delete base.action
+      }
+    } else if (actionType === "route-options") {
+      base.action = {
+        action: "route-options",
+        ...(disable_cache && { disable_cache: true }),
+        ...(rewrite_ttl.trim() && { rewrite_ttl: Number(rewrite_ttl) || null }),
+        ...(client_subnet.trim() && { client_subnet: client_subnet.trim() || null }),
+      }
+      delete base.server
+    } else if (actionType === "reject") {
+      base.action = { action: "reject", method, ...(no_drop && { no_drop: true }) }
+      delete base.server
+    } else {
+      base.action = {
+        action: "predefined",
+        rcode: rcode.trim() || undefined,
+        answer: strToArr(answer).length ? strToArr(answer) : undefined,
+        ns: strToArr(ns).length ? strToArr(ns) : undefined,
+        extra: strToArr(extra).length ? strToArr(extra) : undefined,
+      }
+      delete base.server
+    }
+    onSave(base)
   }
+
+  const textareaClass =
+    "min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
   return (
     <div className="grid gap-3 pt-2 border-t">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Label>{DNS_RULE_FIELD_LABELS.server}</Label>
-          <Input
-            value={server}
-            onChange={(e) => setServer(e.target.value)}
-            placeholder="DNS 服务器 tag"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>{DNS_RULE_FIELD_LABELS.outbound}</Label>
-          <Input
-            value={outbound}
-            onChange={(e) => setOutbound(e.target.value)}
-            placeholder="如 any"
-          />
-        </div>
+      <div className="space-y-1">
+        <Label>{DNS_RULE_FIELD_LABELS.action}</Label>
+        <Select
+          value={actionType}
+          onValueChange={(v) => setActionType(v as "route" | "route-options" | "reject" | "predefined")}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="route">{DNS_RULE_FIELD_LABELS.action_route}</SelectItem>
+            <SelectItem value="route-options">{DNS_RULE_FIELD_LABELS.action_route_options}</SelectItem>
+            <SelectItem value="reject">{DNS_RULE_FIELD_LABELS.action_reject}</SelectItem>
+            <SelectItem value="predefined">{DNS_RULE_FIELD_LABELS.action_predefined}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {actionType === "route" && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label>{DNS_RULE_FIELD_LABELS.action_server}</Label>
+              <Input
+                value={server}
+                onChange={(e) => setServer(e.target.value)}
+                placeholder="DNS 服务器 tag，必填"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>{DNS_RULE_FIELD_LABELS.action_strategy}</Label>
+              <Input
+                value={strategy}
+                onChange={(e) => setStrategy(e.target.value)}
+                placeholder="prefer_ipv4 / ipv6_only 等"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="rule-route-disable-cache"
+              checked={disable_cache}
+              onChange={(e) => setDisableCache(e.target.checked)}
+            />
+            <Label htmlFor="rule-route-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label>{DNS_RULE_FIELD_LABELS.action_rewrite_ttl}</Label>
+              <Input
+                type="number"
+                value={rewrite_ttl}
+                onChange={(e) => setRewriteTtl(e.target.value)}
+                placeholder="数字或留空"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>{DNS_RULE_FIELD_LABELS.action_client_subnet}</Label>
+              <Input
+                value={client_subnet}
+                onChange={(e) => setClientSubnet(e.target.value)}
+                placeholder="如 127.0.0.1/24"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {actionType === "route-options" && (
+        <>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="rule-route-opt-disable-cache"
+              checked={disable_cache}
+              onChange={(e) => setDisableCache(e.target.checked)}
+            />
+            <Label htmlFor="rule-route-opt-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label>{DNS_RULE_FIELD_LABELS.action_rewrite_ttl}</Label>
+              <Input
+                type="number"
+                value={rewrite_ttl}
+                onChange={(e) => setRewriteTtl(e.target.value)}
+                placeholder="数字或留空"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>{DNS_RULE_FIELD_LABELS.action_client_subnet}</Label>
+              <Input
+                value={client_subnet}
+                onChange={(e) => setClientSubnet(e.target.value)}
+                placeholder="如 127.0.0.1/24"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {actionType === "reject" && (
+        <>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_method}</Label>
+            <Select value={method} onValueChange={(v) => setMethod(v as "default" | "drop")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">default（REFUSED）</SelectItem>
+                <SelectItem value="drop">drop</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="rule-reject-no-drop"
+              checked={no_drop}
+              onChange={(e) => setNoDrop(e.target.checked)}
+            />
+            <Label htmlFor="rule-reject-no-drop">{DNS_RULE_FIELD_LABELS.action_no_drop}</Label>
+          </div>
+        </>
+      )}
+
+      {actionType === "predefined" && (
+        <>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_rcode}</Label>
+            <Input
+              value={rcode}
+              onChange={(e) => setRcode(e.target.value)}
+              placeholder="NOERROR / NXDOMAIN / REFUSED 等"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_answer}</Label>
+            <textarea
+              className={textareaClass}
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              placeholder="如 localhost. IN A 127.0.0.1"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_ns}</Label>
+            <textarea
+              className={textareaClass}
+              value={ns}
+              onChange={(e) => setNs(e.target.value)}
+              placeholder="每行一条"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>{DNS_RULE_FIELD_LABELS.action_extra}</Label>
+            <textarea
+              className={textareaClass}
+              value={extra}
+              onChange={(e) => setExtra(e.target.value)}
+              placeholder="每行一条"
+            />
+          </div>
+        </>
+      )}
+
       <div className="space-y-1">
         <Label>{DNS_RULE_FIELD_LABELS.clash_mode}</Label>
         <Input
@@ -748,7 +1220,7 @@ function RuleForm({
       <div className="space-y-1">
         <Label>{DNS_RULE_FIELD_LABELS.rule_set}</Label>
         <textarea
-          className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className={textareaClass}
           value={rule_set}
           onChange={(e) => setRuleSet(e.target.value)}
           placeholder="如 geosite:cn"

@@ -39,6 +39,14 @@ def write_part(module: str, data: dict[str, Any] | list[Any]) -> None:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def write_part_and_merge(module: str, data: dict[str, Any] | list[Any]) -> None:
+    """Write one module to parts/{module}.json, then merge all parts and update config.json."""
+    write_part(module, data)
+    if USE_PARTS:
+        merged = read_merged_config()
+        write_merged_config(merged)
+
+
 def read_merged_config() -> dict[str, Any]:
     """Merge all parts into full config. If USE_PARTS and parts exist, merge from parts; else read single config.json.
     首次：若 parts 下无任何模块文件，则从 config.json 按块解析并写入 parts，再合并。"""

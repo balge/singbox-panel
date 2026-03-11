@@ -79,11 +79,27 @@ export const DNS_RULES_LABEL = schemaLabel(
   "rules",
 );
 
-/** DNS 规则表单字段 label（rule 的 server 在 schema 中为内联描述，其余来自 $ref 对应 def） */
+/** DNS 规则表单字段 label（rule 的 server 在 schema 中为内联描述；outbound 已废弃，使用 action） */
 export const DNS_RULE_FIELD_LABELS = {
-  server: "目标服务器的标签。必填。（server）",
-  outbound: `${defDesc("__schema77") || "匹配出站"}（outbound）`,
+  server: "目标服务器的标签（route 时必填）（server）",
   clash_mode: `${defDesc("__schema64") || "匹配 Clash 模式"}（clash_mode）`,
   rule_set: `${defDesc("__schema73") || "匹配规则集"}（rule_set，每行一项）`,
   package_name: `${defDesc("__schema61") || "匹配 Android 应用包名"}（package_name，每行一项）`,
+  /** 规则动作（rule_action） */
+  action: "规则动作（action）",
+  action_route: "route（路由到服务器）",
+  action_route_options: "route-options（路由选项）",
+  action_reject: "reject（拒绝）",
+  action_predefined: "predefined（预定义响应）",
+  action_server: "目标服务器（server）",
+  action_strategy: "域名策略（strategy）",
+  action_disable_cache: "禁用缓存（disable_cache）",
+  action_rewrite_ttl: "重写 TTL（rewrite_ttl）",
+  action_client_subnet: "客户端子网（client_subnet）",
+  action_method: "拒绝方式（method）",
+  action_no_drop: "no_drop",
+  action_rcode: "响应码（rcode）",
+  action_answer: "answer（每行一条）",
+  action_ns: "ns（每行一条）",
+  action_extra: "extra（每行一条）",
 };

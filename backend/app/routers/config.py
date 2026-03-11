@@ -15,7 +15,7 @@ from ..services.config_service import (
     restore_config,
     write_config,
     write_merged_config,
-    write_part,
+    write_part_and_merge,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,11 +92,11 @@ def post_module(
     body: dict[str, Any] | list[Any] = Body(...),
     _: str = Depends(get_current_user),
 ):
-    """Save one module config."""
+    """Save one module config; when using parts, also merge and update config.json."""
     if module not in CONFIG_MODULES:
         raise HTTPException(status_code=404, detail=f"Unknown module: {module}")
     try:
-        write_part(module, body)
+        write_part_and_merge(module, body)
         return {"ok": True}
     except OSError as e:
         logger.exception("Failed to write part %s", module)

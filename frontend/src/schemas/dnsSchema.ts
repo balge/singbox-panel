@@ -22,14 +22,44 @@ export type DnsServer = Record<string, unknown> & {
   detour?: string;
 };
 
-/** 表单/列表用的 DNS 规则项，与包内 DnsRule 兼容 */
+/** 表单/列表用的 DNS 规则项，与包内 DnsRule 兼容；outbound 已废弃（1.12.0），使用 action（rule_action） */
 export type DnsRule = Record<string, unknown> & {
   server?: string;
-  outbound?: string;
   clash_mode?: string;
   rule_set?: string[];
   package_name?: string[];
+  /** 规则动作：route（含 server/strategy 等）、route-options、reject、predefined */
+  action?: DnsRuleAction;
 };
+
+/** DNS 规则动作：route | route-options | reject | predefined（见 https://sing-box.sagernet.org/configuration/dns/rule_action/） */
+export type DnsRuleAction =
+  | {
+      action: "route";
+      server: string;
+      strategy?: string;
+      disable_cache?: boolean;
+      rewrite_ttl?: number | null;
+      client_subnet?: string | null;
+    }
+  | {
+      action: "route-options";
+      disable_cache?: boolean;
+      rewrite_ttl?: number | null;
+      client_subnet?: string | null;
+    }
+  | {
+      action: "reject";
+      method?: "default" | "drop";
+      no_drop?: boolean;
+    }
+  | {
+      action: "predefined";
+      rcode?: string;
+      answer?: string[];
+      ns?: string[];
+      extra?: string[];
+    };
 
 /** 页面 state 与 merge 使用的类型（servers/rules 为 UI 可编辑形状） */
 export type DnsConfigState = Omit<DnsConfig, "servers" | "rules"> & {
@@ -184,15 +214,18 @@ export function mergeDnsFromJson(obj: unknown): DnsConfigState {
     ? (o.servers as DnsServer[]).map((s) => ({ ...s }))
     : (DEFAULT_DNS.servers ?? []);
   const rules: DnsRule[] = Array.isArray(o.rules)
-    ? (o.rules as DnsRule[]).map((r) => ({
-        ...r,
-        rule_set: Array.isArray((r as Record<string, unknown>).rule_set)
-          ? [...((r as Record<string, unknown>).rule_set as string[])]
-          : undefined,
-        package_name: Array.isArray((r as Record<string, unknown>).package_name)
-          ? [...((r as Record<string, unknown>).package_name as string[])]
-          : undefined,
-      }))
+    ? (o.rules as DnsRule[]).map((r) => {
+        const { outbound: _out, ...rest } = r as Record<string, unknown>;
+        return {
+          ...rest,
+          rule_set: Array.isArray(rest.rule_set)
+            ? [...(rest.rule_set as string[])]
+            : undefined,
+          package_name: Array.isArray(rest.package_name)
+            ? [...(rest.package_name as string[])]
+            : undefined,
+        } as DnsRule;
+      })
     : (DEFAULT_DNS.rules ?? []);
   const fakeipRaw = o.fakeip;
   const fakeip: DnsFakeip =
