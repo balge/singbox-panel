@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordInput } from "@/components/ui/password-input"
 import { useAuth } from "@/contexts/AuthContext"
 
 export function LoginPage() {
@@ -55,9 +56,8 @@ export function LoginPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">密码</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

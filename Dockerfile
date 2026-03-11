@@ -14,5 +14,6 @@ COPY backend/ ./
 COPY --from=frontend /app/frontend/dist /app/static
 ENV PYTHONPATH=/app
 ENV STATIC_DIR=/app/static
+ENV PANELS_DIR=/panels
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

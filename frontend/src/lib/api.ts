@@ -49,3 +49,13 @@ export const authApi = {
   logout: () =>
     apiFetch<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
 }
+
+export const configApi = {
+  getModule: (module: string) =>
+    apiFetch<unknown>(`/api/config/${module}`),
+  saveModule: (module: string, data: unknown) =>
+    apiFetch<{ ok: boolean }>(`/api/config/${module}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+}

@@ -1,0 +1,18 @@
+# singbox-panel：统一使用 panels 目录（config.json、parts、logs、rules、panel_config 均在 panels 下）
+# 前端开发端口 35173，后端 8000
+services:
+  panel:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PANELS_DIR=/panels
+      - PANEL_USERNAME=${PANEL_USERNAME:-admin}
+      - PANEL_PASSWORD=${PANEL_PASSWORD:-admin}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+    volumes:
+      - panels_data:/panels
+    restart: unless-stopped
+
+volumes:
+  panels_data:

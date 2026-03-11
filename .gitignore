@@ -1,7 +1,4 @@
-/config.json
-/rule
-/panel
-/log
+/panels
 /backend/__pycache__
 /backend/.venv
 /backend/**/__pycache__
@@ -15,3 +12,4 @@
 /frontend/*.suo
 /frontend/*.ntvs*
 /frontend/*.njsproj
+.pnpm-store

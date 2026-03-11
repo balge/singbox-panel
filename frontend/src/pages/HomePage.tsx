@@ -21,7 +21,28 @@ export function HomePage() {
       <p className="text-muted-foreground">
         已登录：{state.username}
       </p>
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-4 justify-center">
+        <Button variant="outline" onClick={() => navigate("/experimental")}>
+          实验功能
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/dns")}>
+          DNS 设置
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/log")}>
+          日志设置
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/ntp")}>
+          NTP 设置
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/inbounds")}>
+          入站设置
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/outbounds")}>
+          出站设置
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/route")}>
+          路由设置
+        </Button>
         <Button variant="outline" onClick={handleLogout}>
           退出登录
         </Button>
