@@ -1,42 +1,82 @@
-import { Form, Input, Button, Card, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useAuth } from '../AuthContext';
-import { useState } from 'react';
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useAuth } from "@/contexts/AuthContext"
 
-export default function LoginPage() {
-  const { login } = useAuth();
-  const [loading, setLoading] = useState(false);
+export function LoginPage() {
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const onFinish = async (v: { username: string; password: string }) => {
-    setLoading(true);
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError("")
+    setLoading(true)
     try {
-      await login(v.username, v.password);
-      message.success('登录成功');
-      window.location.href = '/';
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : '登录失败');
+      await login(username, password)
+      navigate("/", { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "登录失败")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <Card title="sing-box 面板登录" style={{ width: '100%', maxWidth: 400 }}>
-        <Form name="login" onFinish={onFinish} size="large">
-          <Form.Item name="username" rules={[{ required: true }]}>
-            <Input prefix={<UserOutlined />} placeholder="用户名" />
-          </Form.Item>
-          <Form.Item name="password" rules={[{ required: true }]}>
-            <Input.Password prefix={<LockOutlined />} placeholder="密码" />
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block loading={loading}>
-              登录
-            </Button>
-          </Form.Item>
-        </Form>
-      </Card>
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+      <div className="w-full max-w-sm space-y-8 rounded-lg border bg-card p-8 shadow-sm">
+        <div className="space-y-2 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Singbox Panel
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            使用账号密码登录
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="username">账号</Label>
+            <Input
+              id="username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="admin"
+              required
+              disabled={loading}
+              className="bg-background"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">密码</Label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              disabled={loading}
+              className="bg-background"
+            />
+          </div>
+          {error && (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "登录中…" : "登录"}
+          </Button>
+        </form>
+      </div>
     </div>
-  );
+  )
 }
