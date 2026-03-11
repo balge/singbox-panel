@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom"
+import { AppLayout } from "@/components/AppLayout"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { DnsPage } from "@/pages/DnsPage"
@@ -6,10 +7,10 @@ import { ExperimentalPage } from "@/pages/ExperimentalPage"
 import { HomePage } from "@/pages/HomePage"
 import { InboundsPage } from "@/pages/InboundsPage"
 import { LogPage } from "@/pages/LogPage"
+import { LoginRoute } from "@/pages/LoginRoute"
 import { NtpPage } from "@/pages/NtpPage"
 import { OutboundsPage } from "@/pages/OutboundsPage"
 import { RoutePage } from "@/pages/RoutePage"
-import { LoginRoute } from "@/pages/LoginRoute"
 
 function App() {
   return (
@@ -21,66 +22,19 @@ function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <HomePage />
+                <AppLayout />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/experimental"
-            element={
-              <ProtectedRoute>
-                <ExperimentalPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dns"
-            element={
-              <ProtectedRoute>
-                <DnsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/log"
-            element={
-              <ProtectedRoute>
-                <LogPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/ntp"
-            element={
-              <ProtectedRoute>
-                <NtpPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/inbounds"
-            element={
-              <ProtectedRoute>
-                <InboundsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/outbounds"
-            element={
-              <ProtectedRoute>
-                <OutboundsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/route"
-            element={
-              <ProtectedRoute>
-                <RoutePage />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route index element={<HomePage />} />
+            <Route path="experimental" element={<ExperimentalPage />} />
+            <Route path="dns" element={<DnsPage />} />
+            <Route path="log" element={<LogPage />} />
+            <Route path="ntp" element={<NtpPage />} />
+            <Route path="inbounds" element={<InboundsPage />} />
+            <Route path="outbounds" element={<OutboundsPage />} />
+            <Route path="route" element={<RoutePage />} />
+          </Route>
           <Route path="*" element={<LoginRoute />} />
         </Routes>
       </AuthProvider>
