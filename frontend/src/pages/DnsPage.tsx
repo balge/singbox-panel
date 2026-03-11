@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { configApi } from "@/lib/api"
 import {
@@ -684,14 +685,13 @@ function AddRuleForm({
               placeholder="prefer_ipv4 / prefer_ipv6 / ipv4_only / ipv6_only"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="add-route-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+            <Switch
               id="add-route-disable-cache"
               checked={disable_cache}
-              onChange={(e) => setDisableCache(e.target.checked)}
+              onCheckedChange={setDisableCache}
             />
-            <Label htmlFor="add-route-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
           </div>
           <div className="space-y-1">
             <Label>{DNS_RULE_FIELD_LABELS.action_rewrite_ttl}</Label>
@@ -715,14 +715,13 @@ function AddRuleForm({
 
       {actionType === "route-options" && (
         <>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="add-route-opt-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+            <Switch
               id="add-route-opt-disable-cache"
               checked={disable_cache}
-              onChange={(e) => setDisableCache(e.target.checked)}
+              onCheckedChange={setDisableCache}
             />
-            <Label htmlFor="add-route-opt-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
           </div>
           <div className="space-y-1">
             <Label>{DNS_RULE_FIELD_LABELS.action_rewrite_ttl}</Label>
@@ -758,14 +757,13 @@ function AddRuleForm({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="add-reject-no-drop">{DNS_RULE_FIELD_LABELS.action_no_drop}</Label>
+            <Switch
               id="add-reject-no-drop"
               checked={no_drop}
-              onChange={(e) => setNoDrop(e.target.checked)}
+              onCheckedChange={setNoDrop}
             />
-            <Label htmlFor="add-reject-no-drop">{DNS_RULE_FIELD_LABELS.action_no_drop}</Label>
           </div>
         </>
       )}
@@ -1079,14 +1077,13 @@ function RuleForm({
               />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="rule-route-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+            <Switch
               id="rule-route-disable-cache"
               checked={disable_cache}
-              onChange={(e) => setDisableCache(e.target.checked)}
+              onCheckedChange={setDisableCache}
             />
-            <Label htmlFor="rule-route-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-1">
@@ -1112,14 +1109,13 @@ function RuleForm({
 
       {actionType === "route-options" && (
         <>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="rule-route-opt-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+            <Switch
               id="rule-route-opt-disable-cache"
               checked={disable_cache}
-              onChange={(e) => setDisableCache(e.target.checked)}
+              onCheckedChange={setDisableCache}
             />
-            <Label htmlFor="rule-route-opt-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-1">
@@ -1157,14 +1153,13 @@ function RuleForm({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="rule-reject-no-drop">{DNS_RULE_FIELD_LABELS.action_no_drop}</Label>
+            <Switch
               id="rule-reject-no-drop"
               checked={no_drop}
-              onChange={(e) => setNoDrop(e.target.checked)}
+              onCheckedChange={setNoDrop}
             />
-            <Label htmlFor="rule-reject-no-drop">{DNS_RULE_FIELD_LABELS.action_no_drop}</Label>
           </div>
         </>
       )}
