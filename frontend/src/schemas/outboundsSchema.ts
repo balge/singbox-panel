@@ -24,21 +24,14 @@ export const DEFAULT_OUTBOUND_ENTRY: OutboundEntry = {
 /** 默认空列表 */
 export const DEFAULT_OUTBOUNDS: OutboundsConfig = []
 
-function mergeOneEntry(raw: unknown): OutboundEntry {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw))
-    return { ...DEFAULT_OUTBOUND_ENTRY }
-  const o = raw as Record<string, unknown>
-  return {
-    type: typeof o.type === "string" ? o.type : DEFAULT_OUTBOUND_ENTRY.type,
-    tag: typeof o.tag === "string" ? o.tag : DEFAULT_OUTBOUND_ENTRY.tag,
-    ...o,
-  }
-}
-
-/** 从 API 返回的 JSON 合并为 OutboundsConfig */
+/** 从 API 返回的 JSON 转为 OutboundsConfig（仅对非数组填默认值） */
 export function mergeOutboundsFromJson(obj: unknown): OutboundsConfig {
   if (!Array.isArray(obj)) return [...DEFAULT_OUTBOUNDS]
-  return obj.map(mergeOneEntry)
+  return obj.map((entry) =>
+    entry && typeof entry === "object" && !Array.isArray(entry)
+      ? { ...DEFAULT_OUTBOUND_ENTRY, ...(entry as Record<string, unknown>) } as OutboundEntry
+      : { ...DEFAULT_OUTBOUND_ENTRY }
+  )
 }
 
 /** 使用 @black-duty/sing-box-schema 校验 outbounds 数组；保存前调用 */

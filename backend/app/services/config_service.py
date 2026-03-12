@@ -10,6 +10,7 @@ from ..config import (
     PARTS_DIR,
     USE_PARTS,
 )
+from .default_config import get_default_merged_config, get_default_parts
 
 # Module names and which are arrays in sing-box config
 CONFIG_MODULES = ("log", "ntp", "inbounds", "outbounds", "route", "dns", "experimental")
@@ -48,11 +49,12 @@ def write_part_and_merge(module: str, data: dict[str, Any] | list[Any]) -> None:
 
 
 def read_merged_config() -> dict[str, Any]:
-    """Merge all parts into full config. If USE_PARTS and parts exist, merge from parts; else read single config.json.
-    首次：若 parts 下无任何模块文件，则从 config.json 按块解析并写入 parts，再合并。"""
+    """Merge all parts into full config. If USE_PARTS: ensure default parts+config when missing, then merge from parts; else read config.json (or write default and read)."""
     if not USE_PARTS:
+        if not CONFIG_PATH.exists():
+            _write_default_config()
         return read_config()
-    ensure_parts_from_config()
+    ensure_default_config()
     if not PARTS_DIR.exists():
         return read_config()
     if not list_parts():
@@ -102,21 +104,33 @@ def list_parts() -> list[str]:
     return [f.stem for f in PARTS_DIR.glob("*.json") if f.stem in CONFIG_MODULES]
 
 
-def ensure_parts_from_config() -> None:
-    """首次：若 parts 下无模块 json，则从 config.json 按块解析并写入 parts（experimental、log、ntp、dns、inbounds、outbounds、route）。"""
+def _write_default_config() -> None:
+    """Write default config.json and, when USE_PARTS, default parts."""
+    data = get_default_merged_config()
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    if USE_PARTS:
+        PARTS_DIR.mkdir(parents=True, exist_ok=True)
+        for module, part_data in get_default_parts().items():
+            if module in CONFIG_MODULES:
+                write_part(module, part_data)
+
+
+def ensure_default_config() -> None:
+    """When USE_PARTS: if no parts exist (or no config.json), write schema-compliant default parts and config.json."""
     if not USE_PARTS:
         return
-    if list_parts():
+    has_parts = bool(list_parts())
+    has_config = CONFIG_PATH.exists()
+    if has_parts and has_config:
         return
-    if not CONFIG_PATH.exists():
-        return
-    data = read_config()
-    if not isinstance(data, dict):
-        return
-    parts = split_config_to_parts(data)
     PARTS_DIR.mkdir(parents=True, exist_ok=True)
-    for module, part_data in parts.items():
-        write_part(module, part_data)
+    for module, part_data in get_default_parts().items():
+        if module in CONFIG_MODULES:
+            write_part(module, part_data)
+    merged = get_default_merged_config()
+    write_merged_config(merged)
 
 
 def backup_config() -> tuple[Path, str]:
@@ -158,6 +172,7 @@ def restore_config(filename: str) -> None:
 
 
 def read_config() -> dict[str, Any]:
+    """Read config.json. If missing, returns {} (caller may then ensure default)."""
     if not CONFIG_PATH.exists():
         return {}
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:

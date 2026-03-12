@@ -22,22 +22,11 @@ export const DEFAULT_NTP: NtpConfig = {
   interval: "30m",
 }
 
-/** 从 API 返回的 JSON 合并为 NtpConfig */
+/** 从 API 返回的 JSON 转为 NtpConfig（仅对缺失键填默认值） */
 export function mergeNtpFromJson(obj: unknown): NtpConfig {
   if (!obj || typeof obj !== "object" || Array.isArray(obj))
     return { ...DEFAULT_NTP }
-  const o = obj as Record<string, unknown>
-  return {
-    enabled:
-      typeof o.enabled === "boolean" ? o.enabled : DEFAULT_NTP.enabled,
-    server: typeof o.server === "string" ? o.server : DEFAULT_NTP.server,
-    server_port:
-      typeof o.server_port === "number"
-        ? o.server_port
-        : DEFAULT_NTP.server_port,
-    interval:
-      typeof o.interval === "string" ? o.interval : DEFAULT_NTP.interval,
-  }
+  return { ...DEFAULT_NTP, ...(obj as Record<string, unknown>) } as NtpConfig
 }
 
 /** 使用 @black-duty/sing-box-schema 校验 ntp 配置；保存前调用 */

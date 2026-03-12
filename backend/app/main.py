@@ -12,14 +12,14 @@ from .routers import auth, config, panel_config, subscription, outbounds
 app = FastAPI(title="sing-box Panel API", version="0.1.0")
 
 @app.on_event("startup")
-def startup_migrate_parts():
-    """启动时：若 parts 为空且存在 config.json，则按块解析并写入 parts。"""
+def startup_ensure_default_config():
+    """启动时：若无 config/parts，则生成符合 schema 的默认 config.json 与 parts/*.json。"""
     import logging
     try:
-        from .services.config_service import ensure_parts_from_config
-        ensure_parts_from_config()
+        from .services.config_service import ensure_default_config
+        ensure_default_config()
     except Exception as e:
-        logging.getLogger(__name__).warning("Startup migrate config to parts skipped or failed: %s", e)
+        logging.getLogger(__name__).warning("Startup ensure default config failed: %s", e)
 
 app.add_middleware(
     CORSMiddleware,

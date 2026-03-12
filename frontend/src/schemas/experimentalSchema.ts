@@ -45,72 +45,33 @@ export const DEFAULT_EXPERIMENTAL: ExperimentalConfig = {
   },
 }
 
-function mergeObj(
-  def: Record<string, unknown> | undefined,
-  src: unknown,
-  schema: Record<string, string>
-): Record<string, unknown> {
-  const out = { ...def }
-  if (!src || typeof src !== "object" || Array.isArray(src)) return out ?? {}
-  const s = src as Record<string, unknown>
-  for (const [key, type] of Object.entries(schema)) {
-    const v = s[key]
-    if (v === undefined) continue
-    if (type === "boolean" && typeof v === "boolean") out[key] = v
-    else if (type === "string" && typeof v === "string") out[key] = v
-    else if (type === "array" && Array.isArray(v))
-      out[key] = v.map((x) => (typeof x === "string" ? x : String(x)))
-  }
-  return out
-}
-
-/** 从 API 返回的 JSON 合并为 ExperimentalConfig */
+/** 从 API 返回的 JSON 转为 ExperimentalConfig（仅对缺失键填默认值） */
 export function mergeExperimentalFromJson(obj: unknown): ExperimentalConfig {
   if (!obj || typeof obj !== "object" || Array.isArray(obj))
     return { ...DEFAULT_EXPERIMENTAL }
   const o = obj as Record<string, unknown>
-  return {
-    cache_file: mergeObj(DEFAULT_EXPERIMENTAL.cache_file, o.cache_file, {
-      enabled: "boolean",
-      path: "string",
-      cache_id: "string",
-      store_fakeip: "boolean",
-      store_rdrc: "boolean",
-      rdrc_timeout: "string",
-    }) as ExperimentalConfig["cache_file"],
-    clash_api: mergeObj(DEFAULT_EXPERIMENTAL.clash_api, o.clash_api, {
-      external_controller: "string",
-      external_ui: "string",
-      external_ui_download_url: "string",
-      external_ui_download_detour: "string",
-      secret: "string",
-      default_mode: "string",
-      access_control_allow_origin: "array",
-      access_control_allow_private_network: "boolean",
-    }) as ExperimentalConfig["clash_api"],
-    v2ray_api: (() => {
-      const v = o.v2ray_api
-      if (!v || typeof v !== "object" || Array.isArray(v))
-        return DEFAULT_EXPERIMENTAL.v2ray_api
-      const vv = v as Record<string, unknown>
-      const stats =
-        vv.stats && typeof vv.stats === "object" && !Array.isArray(vv.stats)
-          ? mergeObj(DEFAULT_EXPERIMENTAL.v2ray_api?.stats, vv.stats, {
-              enabled: "boolean",
-              inbounds: "array",
-              outbounds: "array",
-              users: "array",
-            })
-          : DEFAULT_EXPERIMENTAL.v2ray_api?.stats
-      return {
-        listen:
-          typeof vv.listen === "string"
-            ? vv.listen
-            : DEFAULT_EXPERIMENTAL.v2ray_api?.listen ?? "",
-        stats,
+  const cache_file = o.cache_file && typeof o.cache_file === "object" && !Array.isArray(o.cache_file)
+    ? { ...DEFAULT_EXPERIMENTAL.cache_file, ...(o.cache_file as Record<string, unknown>) }
+    : DEFAULT_EXPERIMENTAL.cache_file
+  const clash_api = o.clash_api && typeof o.clash_api === "object" && !Array.isArray(o.clash_api)
+    ? { ...DEFAULT_EXPERIMENTAL.clash_api, ...(o.clash_api as Record<string, unknown>) }
+    : DEFAULT_EXPERIMENTAL.clash_api
+  const v2ray_api = o.v2ray_api && typeof o.v2ray_api === "object" && !Array.isArray(o.v2ray_api)
+    ? {
+        ...DEFAULT_EXPERIMENTAL.v2ray_api,
+        ...(o.v2ray_api as Record<string, unknown>),
+        stats:
+          (o.v2ray_api as Record<string, unknown>).stats &&
+          typeof (o.v2ray_api as Record<string, unknown>).stats === "object" &&
+          !Array.isArray((o.v2ray_api as Record<string, unknown>).stats)
+            ? {
+                ...DEFAULT_EXPERIMENTAL.v2ray_api?.stats,
+                ...((o.v2ray_api as Record<string, unknown>).stats as Record<string, unknown>),
+              }
+            : DEFAULT_EXPERIMENTAL.v2ray_api?.stats,
       }
-    })(),
-  }
+    : DEFAULT_EXPERIMENTAL.v2ray_api
+  return { cache_file, clash_api, v2ray_api } as ExperimentalConfig
 }
 
 /** 使用 @black-duty/sing-box-schema 校验 experimental 配置；保存前调用 */

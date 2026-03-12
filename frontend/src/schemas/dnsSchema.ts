@@ -13,16 +13,35 @@ import { schemaLabel } from "@/lib/schemaZh";
 /** 顶层 DNS 配置类型（与包一致，用于校验结果） */
 export type DnsConfig = DnsConfigSchema;
 
-/** 表单/列表用的 DNS 服务器项（兼容 legacy tag+address 等），与包内 DnsServer 兼容 */
+/** 表单/列表用的 DNS 服务器项（与包内 DnsServer 一致，含 type/server 等） */
 export type DnsServer = Record<string, unknown> & {
+  type?: string;
   tag?: string;
+  server?: string;
+  server_port?: number;
+  path?: string;
+  domain_resolver?: string;
+  detour?: string;
+  /** Local */
+  prefer_go?: boolean;
+  /** Hosts */
+  /** DHCP */
+  interface?: string;
+  /** FakeIP server type */
+  inet4_range?: string;
+  inet6_range?: string;
+  /** Tailscale */
+  endpoint?: string;
+  accept_default_resolvers?: boolean;
+  /** Resolved */
+  service?: string;
+  /** Legacy (deprecated) */
   address?: string;
   address_resolver?: string;
   strategy?: string;
-  detour?: string;
 };
 
-/** 表单/列表用的 DNS 规则项，与包内 DnsRule 兼容；outbound 已废弃（1.12.0），使用 action（rule_action） */
+/** 表单/列表用的 DNS 规则项（与包内 DnsRule 一致；outbound 已废弃，使用 action） */
 export type DnsRule = Record<string, unknown> & {
   server?: string;
   clash_mode?: string;
@@ -67,11 +86,11 @@ export type DnsConfigState = Omit<DnsConfig, "servers" | "rules"> & {
   rules?: DnsRule[];
 };
 
-/** Legacy fakeip 子结构（DNSOptions.fakeip） */
+/** fakeip 子结构（DNSOptions.fakeip） */
 export type DnsFakeip = NonNullable<DnsConfig["fakeip"]>;
 
 /** 用于 strategy 等 select 的“空”选项；Radix Select 不允许 SelectItem value 为空字符串 */
-export const SELECT_EMPTY_VALUE = "__empty__"
+export const SELECT_EMPTY_VALUE = "__empty__";
 
 const STRATEGY_OPTIONS = [
   { value: SELECT_EMPTY_VALUE, label: "（空）" },
@@ -124,38 +143,68 @@ export const DNS_TOP_SCHEMA: SchemaField[] = [
   {
     key: "disable_cache",
     path: "disable_cache",
-    label: schemaLabel("DNSOptions", ["disable_cache"], "禁用 DNS 缓存", "disable_cache"),
+    label: schemaLabel(
+      "DNSOptions",
+      ["disable_cache"],
+      "禁用 DNS 缓存",
+      "disable_cache",
+    ),
     type: "boolean",
   },
   {
     key: "disable_expire",
     path: "disable_expire",
-    label: schemaLabel("DNSOptions", ["disable_expire"], "禁用缓存过期", "disable_expire"),
+    label: schemaLabel(
+      "DNSOptions",
+      ["disable_expire"],
+      "禁用缓存过期",
+      "disable_expire",
+    ),
     type: "boolean",
   },
   {
     key: "independent_cache",
     path: "independent_cache",
-    label: schemaLabel("DNSOptions", ["independent_cache"], "各 DNS 独立缓存", "independent_cache"),
+    label: schemaLabel(
+      "DNSOptions",
+      ["independent_cache"],
+      "各 DNS 独立缓存",
+      "independent_cache",
+    ),
     type: "boolean",
   },
   {
     key: "cache_capacity",
     path: "cache_capacity",
-    label: schemaLabel("DNSOptions", ["cache_capacity"], "LRU 缓存容量（≥1024）", "cache_capacity"),
+    label: schemaLabel(
+      "DNSOptions",
+      ["cache_capacity"],
+      "LRU 缓存容量（≥1024）",
+      "cache_capacity",
+    ),
     type: "number",
     placeholder: "0 表示忽略",
   },
   {
     key: "reverse_mapping",
     path: "reverse_mapping",
-    label: schemaLabel("DNSOptions", ["reverse_mapping"], "反向 IP 映射", "reverse_mapping"),
+    label: schemaLabel(
+      "DNSOptions",
+      ["reverse_mapping"],
+      "反向 IP 映射",
+      "reverse_mapping",
+    ),
     type: "boolean",
   },
   {
     key: "client_subnet",
     path: "client_subnet",
-    label: schemaLabel("DNSOptions", ["client_subnet"], "EDNS Client Subnet", "client_subnet"),
+    label: schemaLabel(
+      "DNSOptions",
+      ["client_subnet"],
+      "EDNS Client Subnet",
+      "client_subnet",
+    ),
     type: "string",
     placeholder: "如 0.0.0.0/0",
   },
@@ -166,24 +215,127 @@ export const DNS_FAKEIP_SCHEMA: SchemaField[] = [
   {
     key: "enabled",
     path: "fakeip.enabled",
-    label: schemaLabel("DNSOptions", ["fakeip", "enabled"], "启用 FakeIP", "enabled"),
+    label: schemaLabel(
+      "DNSOptions",
+      ["fakeip", "enabled"],
+      "启用 FakeIP",
+      "enabled",
+    ),
     type: "boolean",
   },
   {
     key: "inet4_range",
     path: "fakeip.inet4_range",
-    label: schemaLabel("DNSOptions", ["fakeip", "inet4_range"], "FakeIP IPv4 段", "inet4_range"),
+    label: schemaLabel(
+      "DNSOptions",
+      ["fakeip", "inet4_range"],
+      "FakeIP IPv4 段",
+      "inet4_range",
+    ),
     type: "string",
     placeholder: "如 198.18.0.0/15",
   },
   {
     key: "inet6_range",
     path: "fakeip.inet6_range",
-    label: schemaLabel("DNSOptions", ["fakeip", "inet6_range"], "FakeIP IPv6 段", "inet6_range"),
+    label: schemaLabel(
+      "DNSOptions",
+      ["fakeip", "inet6_range"],
+      "FakeIP IPv6 段",
+      "inet6_range",
+    ),
     type: "string",
     placeholder: "如 fd00::/108",
   },
 ];
+
+// --- DNS Server 按 type 分类的表单 schema（对应 https://sing-box.sagernet.org/configuration/dns/server/）---
+
+/** DNS 服务器 type 选项（新 schema 格式，不含 legacy） */
+export const DNS_SERVER_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: "udp", label: "UDP" },
+  { value: "tcp", label: "TCP" },
+  { value: "tls", label: "TLS" },
+  { value: "quic", label: "QUIC" },
+  { value: "https", label: "HTTPS" },
+  { value: "h3", label: "HTTP/3" },
+  { value: "local", label: "Local" },
+  { value: "hosts", label: "Hosts" },
+  { value: "dhcp", label: "DHCP" },
+  { value: "fakeip", label: "FakeIP" },
+  { value: "tailscale", label: "Tailscale" },
+  { value: "resolved", label: "Resolved" },
+];
+
+/** 各 type 对应的表单字段（仅常用字段；不含 domain_resolver、detour） */
+export const DNS_SERVER_SCHEMA_BY_TYPE: Record<string, SchemaField[]> = {
+  udp: [
+    { key: "tag", label: schemaLabel("UDPDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_resolver" },
+    { key: "server", label: schemaLabel("UDPDNSServerOptions", ["server"], "服务器地址", "server"), type: "string", placeholder: "如 223.5.5.5" },
+    { key: "server_port", label: schemaLabel("UDPDNSServerOptions", ["server_port"], "端口", "server_port"), type: "number", placeholder: "默认 53" },
+  ],
+  tcp: [
+    { key: "tag", label: schemaLabel("TCPDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_tcp" },
+    { key: "server", label: schemaLabel("TCPDNSServerOptions", ["server"], "服务器地址", "server"), type: "string", placeholder: "如 223.5.5.5" },
+    { key: "server_port", label: schemaLabel("TCPDNSServerOptions", ["server_port"], "端口", "server_port"), type: "number", placeholder: "默认 53" },
+  ],
+  tls: [
+    { key: "tag", label: schemaLabel("TLSDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_tls" },
+    { key: "server", label: schemaLabel("TLSDNSServerOptions", ["server"], "服务器地址", "server"), type: "string", placeholder: "如 1.1.1.1" },
+    { key: "server_port", label: schemaLabel("TLSDNSServerOptions", ["server_port"], "端口", "server_port"), type: "number", placeholder: "默认 853" },
+  ],
+  quic: [
+    { key: "tag", label: schemaLabel("QUICDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_quic" },
+    { key: "server", label: schemaLabel("QUICDNSServerOptions", ["server"], "服务器地址", "server"), type: "string", placeholder: "如 1.1.1.1" },
+    { key: "server_port", label: schemaLabel("QUICDNSServerOptions", ["server_port"], "端口", "server_port"), type: "number", placeholder: "默认 853" },
+  ],
+  https: [
+    { key: "tag", label: schemaLabel("HTTPSDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_doh" },
+    { key: "server", label: schemaLabel("HTTPSDNSServerOptions", ["server"], "服务器地址", "server"), type: "string", placeholder: "如 1.1.1.1" },
+    { key: "server_port", label: schemaLabel("HTTPSDNSServerOptions", ["server_port"], "端口", "server_port"), type: "number", placeholder: "默认 443" },
+    { key: "path", label: schemaLabel("HTTPSDNSServerOptions", ["path"], "路径", "path"), type: "string", placeholder: "默认 /dns-query" },
+  ],
+  h3: [
+    { key: "tag", label: schemaLabel("HTTP3DNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_h3" },
+    { key: "server", label: schemaLabel("HTTP3DNSServerOptions", ["server"], "服务器地址", "server"), type: "string", placeholder: "如 1.1.1.1" },
+    { key: "server_port", label: schemaLabel("HTTP3DNSServerOptions", ["server_port"], "端口", "server_port"), type: "number", placeholder: "默认 443" },
+    { key: "path", label: schemaLabel("HTTP3DNSServerOptions", ["path"], "路径", "path"), type: "string", placeholder: "默认 /dns-query" },
+  ],
+  local: [
+    { key: "tag", label: schemaLabel("LocalDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_local" },
+    { key: "prefer_go", label: schemaLabel("LocalDNSServerOptions", ["prefer_go"], "优先通过 Go 拨号解析", "prefer_go"), type: "boolean" },
+  ],
+  hosts: [
+    { key: "tag", label: schemaLabel("HostsDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_hosts" },
+    { key: "path", label: schemaLabel("HostsDNSServerOptions", ["path"], "主机文件路径", "path"), type: "string", placeholder: "可选，默认 /etc/hosts" },
+  ],
+  dhcp: [
+    { key: "tag", label: schemaLabel("DHCPDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_dhcp" },
+    { key: "interface", label: schemaLabel("DHCPDNSServerOptions", ["interface"], "监听接口", "interface"), type: "string", placeholder: "可选" },
+  ],
+  fakeip: [
+    { key: "tag", label: schemaLabel("FakeIPDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_fakeip" },
+    { key: "inet4_range", label: schemaLabel("FakeIPDNSServerOptions", ["inet4_range"], "IPv4 段", "inet4_range"), type: "string", placeholder: "如 198.18.0.0/15" },
+    { key: "inet6_range", label: schemaLabel("FakeIPDNSServerOptions", ["inet6_range"], "IPv6 段", "inet6_range"), type: "string", placeholder: "如 fd00::/108" },
+  ],
+  tailscale: [
+    { key: "tag", label: schemaLabel("TailscaleDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_ts" },
+    { key: "endpoint", label: schemaLabel("TailscaleDNSServerOptions", ["endpoint"], "Tailscale 端点 tag", "endpoint"), type: "string", placeholder: "必填" },
+    { key: "accept_default_resolvers", label: schemaLabel("TailscaleDNSServerOptions", ["accept_default_resolvers"], "接受默认解析器回退", "accept_default_resolvers"), type: "boolean" },
+  ],
+  resolved: [
+    { key: "tag", label: schemaLabel("ResolvedDNSServerOptions", ["tag"], "标签", "tag"), type: "string", placeholder: "如 dns_resolved" },
+    { key: "service", label: schemaLabel("ResolvedDNSServerOptions", ["service"], "Resolved 服务 tag", "service"), type: "string", placeholder: "必填" },
+    { key: "accept_default_resolvers", label: schemaLabel("ResolvedDNSServerOptions", ["accept_default_resolvers"], "接受默认解析器回退", "accept_default_resolvers"), type: "boolean" },
+  ],
+};
+
+/** 根据 server 推断 type（新格式用 type，否则返回 udp 作为默认） */
+export function getDnsServerType(server: DnsServer): string {
+  const t = server.type;
+  if (t && typeof t === "string" && DNS_SERVER_TYPE_OPTIONS.some((o) => o.value === t)) return t;
+  return "udp";
+}
 
 /** 默认 DNS 配置（用于空数据与合并） */
 export const DEFAULT_DNS: DnsConfigState = {
@@ -204,86 +356,21 @@ export const DEFAULT_DNS: DnsConfigState = {
   },
 };
 
-/** 从 API 返回的 JSON 合并为 DnsConfigState（填充默认、兼容不完整数据） */
+/** 从 API 返回的 JSON 转为 DnsConfigState（API 始终为当前 schema 格式，仅对缺失键填默认值） */
 export function mergeDnsFromJson(obj: unknown): DnsConfigState {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
     return { ...DEFAULT_DNS };
   }
   const o = obj as Record<string, unknown>;
-  const servers: DnsServer[] = Array.isArray(o.servers)
-    ? (o.servers as DnsServer[]).map((s) => ({ ...s }))
-    : (DEFAULT_DNS.servers ?? []);
-  const rules: DnsRule[] = Array.isArray(o.rules)
-    ? (o.rules as DnsRule[]).map((r) => {
-        const { outbound: _out, ...rest } = r as Record<string, unknown>;
-        return {
-          ...rest,
-          rule_set: Array.isArray(rest.rule_set)
-            ? [...(rest.rule_set as string[])]
-            : undefined,
-          package_name: Array.isArray(rest.package_name)
-            ? [...(rest.package_name as string[])]
-            : undefined,
-        } as DnsRule;
-      })
-    : (DEFAULT_DNS.rules ?? []);
-  const fakeipRaw = o.fakeip;
-  const fakeip: DnsFakeip =
-    fakeipRaw && typeof fakeipRaw === "object" && !Array.isArray(fakeipRaw)
-      ? {
-          enabled:
-            typeof (fakeipRaw as Record<string, unknown>).enabled === "boolean"
-              ? ((fakeipRaw as Record<string, unknown>).enabled as boolean)
-              : (DEFAULT_DNS.fakeip?.enabled ?? false),
-          inet4_range:
-            typeof (fakeipRaw as Record<string, unknown>).inet4_range ===
-            "string"
-              ? ((fakeipRaw as Record<string, unknown>).inet4_range as string)
-              : (DEFAULT_DNS.fakeip?.inet4_range ?? ""),
-          inet6_range:
-            typeof (fakeipRaw as Record<string, unknown>).inet6_range ===
-            "string"
-              ? ((fakeipRaw as Record<string, unknown>).inet6_range as string)
-              : (DEFAULT_DNS.fakeip?.inet6_range ?? ""),
-        }
-      : { ...DEFAULT_DNS.fakeip };
-
   return {
-    servers,
-    rules,
-    final: typeof o.final === "string" ? o.final : DEFAULT_DNS.final,
-    strategy:
-      typeof o.strategy === "string" && o.strategy !== "" &&
-      STRATEGY_OPTIONS.some((opt) => opt.value === o.strategy && opt.value !== SELECT_EMPTY_VALUE)
-        ? (o.strategy as DnsConfig["strategy"])
-        : o.strategy === "" || o.strategy === undefined
-          ? undefined
-          : DEFAULT_DNS.strategy,
-    disable_cache:
-      typeof o.disable_cache === "boolean"
-        ? o.disable_cache
-        : DEFAULT_DNS.disable_cache,
-    disable_expire:
-      typeof o.disable_expire === "boolean"
-        ? o.disable_expire
-        : DEFAULT_DNS.disable_expire,
-    independent_cache:
-      typeof o.independent_cache === "boolean"
-        ? o.independent_cache
-        : DEFAULT_DNS.independent_cache,
-    cache_capacity:
-      typeof o.cache_capacity === "number"
-        ? o.cache_capacity
-        : DEFAULT_DNS.cache_capacity,
-    reverse_mapping:
-      typeof o.reverse_mapping === "boolean"
-        ? o.reverse_mapping
-        : DEFAULT_DNS.reverse_mapping,
-    client_subnet:
-      typeof o.client_subnet === "string"
-        ? o.client_subnet
-        : DEFAULT_DNS.client_subnet,
-    fakeip,
+    ...DEFAULT_DNS,
+    ...o,
+    servers: Array.isArray(o.servers) ? o.servers as DnsServer[] : (DEFAULT_DNS.servers ?? []),
+    rules: Array.isArray(o.rules) ? o.rules as DnsRule[] : (DEFAULT_DNS.rules ?? []),
+    fakeip:
+      o.fakeip && typeof o.fakeip === "object" && !Array.isArray(o.fakeip)
+        ? { ...DEFAULT_DNS.fakeip, ...(o.fakeip as Record<string, unknown>) }
+        : DEFAULT_DNS.fakeip,
   };
 }
 

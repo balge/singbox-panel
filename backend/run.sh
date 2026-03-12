@@ -20,4 +20,4 @@ echo "PANELS_DIR=$PANELS_DIR"
 echo "PANEL_USERNAME=$PANEL_USERNAME"
 echo "PANEL_PASSWORD=****"
 echo "Starting uvicorn on http://127.0.0.1:8000"
-exec uvicorn app.main:app --reload --port 8000
+exec python3 -m uvicorn app.main:app --reload --port 8000

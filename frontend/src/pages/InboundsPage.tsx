@@ -14,7 +14,7 @@ import { configApi } from "@/lib/api"
 import {
   DEFAULT_INBOUND_ENTRY,
   DEFAULT_INBOUNDS,
-  INBOUND_ENTRY_SCHEMA,
+  getInboundSchemaForType,
   type InboundEntry,
   type InboundsConfig,
   mergeInboundsFromJson,
@@ -118,7 +118,7 @@ export function InboundsPage() {
         <p className="text-sm text-muted-foreground">
           编辑 inbounds 模块，字段参考
           <a
-            href="https://sing-box.sagernet.org/configuration/inbound/"
+            href="https://sing-box.sagernet.org/zh/configuration/inbound/"
             target="_blank"
             rel="noreferrer"
             className="ml-1 text-primary underline"
@@ -253,7 +253,7 @@ function AddInboundForm({
   return (
     <div className="grid gap-4">
       <SchemaForm
-        schema={INBOUND_ENTRY_SCHEMA}
+        schema={getInboundSchemaForType((localEntry.type as string) || "mixed")}
         data={localEntry as unknown as Record<string, unknown>}
         onChange={(next) =>
           setLocalEntry({
@@ -288,7 +288,7 @@ function InboundForm({
   return (
     <div className="grid gap-4 pt-2 border-t">
       <SchemaForm
-        schema={INBOUND_ENTRY_SCHEMA}
+        schema={getInboundSchemaForType((localEntry.type as string) || "mixed")}
         data={localEntry as unknown as Record<string, unknown>}
         onChange={(next) =>
           setLocalEntry({

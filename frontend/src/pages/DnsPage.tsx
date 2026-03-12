@@ -1,191 +1,197 @@
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { ConfirmDialog } from "@/components/ConfirmDialog"
-import { configApi } from "@/lib/api"
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { configApi } from "@/lib/api";
 import {
   DEFAULT_DNS,
   DNS_FAKEIP_SCHEMA,
   DNS_TOP_SCHEMA,
+  DNS_SERVER_TYPE_OPTIONS,
+  DNS_SERVER_SCHEMA_BY_TYPE,
+  getDnsServerType,
   type DnsConfigState,
   type DnsRule,
   type DnsRuleAction,
   type DnsServer,
+  type SchemaField,
   mergeDnsFromJson,
   validateDns,
-} from "@/schemas/dnsSchema"
-import { SchemaForm } from "@/components/SchemaForm"
+} from "@/schemas/dnsSchema";
+import { SchemaForm } from "@/components/SchemaForm";
 import {
-  schemaLabel,
   DNS_SERVERS_LABEL,
   DNS_RULES_LABEL,
   DNS_RULE_FIELD_LABELS,
-} from "@/lib/schemaZh"
+} from "@/lib/schemaZh";
 
 function arrToStr(arr: string[] | undefined): string {
-  return Array.isArray(arr) ? arr.join("\n") : ""
+  return Array.isArray(arr) ? arr.join("\n") : "";
 }
 function strToArr(s: string): string[] {
   return s
     .split("\n")
     .map((x) => x.trim())
-    .filter(Boolean)
+    .filter(Boolean);
 }
 
 export function DnsPage() {
-  const navigate = useNavigate()
-  const [data, setData] = useState<DnsConfigState>(DEFAULT_DNS)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState("")
-  const [editingServerIndex, setEditingServerIndex] = useState<number | null>(null)
-  const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null)
-  const [addServerOpen, setAddServerOpen] = useState(false)
-  const [addRuleOpen, setAddRuleOpen] = useState(false)
+  const navigate = useNavigate();
+  const [data, setData] = useState<DnsConfigState>(DEFAULT_DNS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [editingServerIndex, setEditingServerIndex] = useState<number | null>(
+    null,
+  );
+  const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null);
+  const [addServerOpen, setAddServerOpen] = useState(false);
+  const [addRuleOpen, setAddRuleOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    open: boolean
-    kind: "server" | "rule" | null
-    index: number
-  }>({ open: false, kind: null, index: -1 })
+    open: boolean;
+    kind: "server" | "rule" | null;
+    index: number;
+  }>({ open: false, kind: null, index: -1 });
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError("")
+    let cancelled = false;
+    setLoading(true);
+    setError("");
     configApi
       .getModule("dns")
       .then((res) => {
-        if (cancelled) return
-        setData(mergeDnsFromJson(res))
+        if (cancelled) return;
+        setData(mergeDnsFromJson(res));
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "加载失败")
+        if (!cancelled) setError(e instanceof Error ? e.message : "加载失败");
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+        if (!cancelled) setLoading(false);
+      });
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   async function saveDns(next: DnsConfigState) {
-    const validation = validateDns(next)
+    console.log(JSON.stringify(next));
+    const validation = validateDns(next);
     if (!validation.success) {
-      setError(validation.error)
-      return
+      setError(validation.error);
+      return;
     }
-    setError("")
-    setSaving(true)
+    setError("");
+    setSaving(true);
     try {
-      await configApi.saveModule("dns", validation.data)
-      setData(mergeDnsFromJson(validation.data))
+      await configApi.saveModule("dns", validation.data);
+      setData(mergeDnsFromJson(validation.data));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败")
+      setError(e instanceof Error ? e.message : "保存失败");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function saveTopSection() {
-    await saveDns(data)
+    await saveDns(data);
   }
 
   async function saveFakeipSection() {
-    await saveDns(data)
+    await saveDns(data);
   }
 
-  const servers = data.servers ?? []
-  const rules = data.rules ?? []
+  const servers = data.servers ?? [];
+  const rules = data.rules ?? [];
 
   const addServerAndSave = (server: DnsServer) => {
     const next: DnsConfigState = {
       ...data,
       servers: [...(data.servers ?? []), server],
-    }
-    setData(next)
-    setAddServerOpen(false)
-    saveDns(next)
-  }
+    };
+    setData(next);
+    setAddServerOpen(false);
+    saveDns(next);
+  };
 
   const updateServerAndSave = (index: number, server: DnsServer) => {
-    const list = [...(data.servers ?? [])]
-    list[index] = server
-    const next = { ...data, servers: list }
-    setData(next)
-    setEditingServerIndex(null)
-    saveDns(next)
-  }
+    const list = [...(data.servers ?? [])];
+    list[index] = server;
+    const next = { ...data, servers: list };
+    setData(next);
+    setEditingServerIndex(null);
+    saveDns(next);
+  };
 
   const removeServerAndSave = (index: number) => {
     const next = {
       ...data,
       servers: (data.servers ?? []).filter((_, i) => i !== index),
-    }
-    setData(next)
-    if (editingServerIndex === index) setEditingServerIndex(null)
+    };
+    setData(next);
+    if (editingServerIndex === index) setEditingServerIndex(null);
     else if (editingServerIndex != null && editingServerIndex > index)
-      setEditingServerIndex(editingServerIndex - 1)
-    saveDns(next)
-  }
+      setEditingServerIndex(editingServerIndex - 1);
+    saveDns(next);
+  };
 
   const addRuleAndSave = (rule: DnsRule) => {
     const next: DnsConfigState = {
       ...data,
       rules: [...(data.rules ?? []), rule],
-    }
-    setData(next)
-    setAddRuleOpen(false)
-    saveDns(next)
-  }
+    };
+    setData(next);
+    setAddRuleOpen(false);
+    saveDns(next);
+  };
 
   const updateRuleAndSave = (index: number, rule: DnsRule) => {
-    const list = [...(data.rules ?? [])]
-    list[index] = rule
-    const next = { ...data, rules: list }
-    setData(next)
-    setEditingRuleIndex(null)
-    saveDns(next)
-  }
+    const list = [...(data.rules ?? [])];
+    list[index] = rule;
+    const next = { ...data, rules: list };
+    setData(next);
+    setEditingRuleIndex(null);
+    saveDns(next);
+  };
 
   const removeRuleAndSave = (index: number) => {
     const next = {
       ...data,
       rules: (data.rules ?? []).filter((_, i) => i !== index),
-    }
-    setData(next)
-    if (editingRuleIndex === index) setEditingRuleIndex(null)
+    };
+    setData(next);
+    if (editingRuleIndex === index) setEditingRuleIndex(null);
     else if (editingRuleIndex != null && editingRuleIndex > index)
-      setEditingRuleIndex(editingRuleIndex - 1)
-    saveDns(next)
-  }
+      setEditingRuleIndex(editingRuleIndex - 1);
+    saveDns(next);
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-8">
         <p className="text-muted-foreground">加载中…</p>
       </div>
-    )
+    );
   }
 
-  const dataAsRecord = data as unknown as Record<string, unknown>
+  const dataAsRecord = data as unknown as Record<string, unknown>;
 
   return (
     <div className="min-h-screen p-6 md:p-8">
@@ -262,7 +268,7 @@ export function DnsPage() {
                 </p>
               ) : (
                 servers.map((s, i) => {
-                  const item = s as DnsServer
+                  const item = s as DnsServer;
                   return (
                     <div
                       key={i}
@@ -270,7 +276,12 @@ export function DnsPage() {
                     >
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <span className="font-mono text-sm">
-                          {item.tag || "(无 tag)"} — {item.address || "(无 address)"}
+                          {item.tag || "(无 tag)"} — type: {getDnsServerType(item)} —{" "}
+                          {item.server != null
+                            ? `${item.server}${item.server_port != null ? `:${item.server_port}` : ""}`
+                            : item.address != null
+                              ? item.address
+                              : "(未设置地址)"}
                         </span>
                         <div className="flex gap-1">
                           <Button
@@ -279,7 +290,7 @@ export function DnsPage() {
                             size="sm"
                             onClick={() =>
                               setEditingServerIndex(
-                                editingServerIndex === i ? null : i
+                                editingServerIndex === i ? null : i,
                               )
                             }
                           >
@@ -290,7 +301,13 @@ export function DnsPage() {
                             variant="ghost"
                             size="sm"
                             className="text-destructive"
-                            onClick={() => setDeleteConfirm({ open: true, kind: "server", index: i })}
+                            onClick={() =>
+                              setDeleteConfirm({
+                                open: true,
+                                kind: "server",
+                                index: i,
+                              })
+                            }
                           >
                             删除
                           </Button>
@@ -304,7 +321,7 @@ export function DnsPage() {
                         />
                       )}
                     </div>
-                  )
+                  );
                 })
               )}
             </div>
@@ -329,7 +346,7 @@ export function DnsPage() {
                 </p>
               ) : (
                 rules.map((r, i) => {
-                  const item = r as DnsRule
+                  const item = r as DnsRule;
                   return (
                     <div
                       key={i}
@@ -349,8 +366,8 @@ export function DnsPage() {
                             return `server: ${s ?? "(未设置)"}`;
                           })()}
                           {item.action &&
-                            typeof item.action === "object" &&
-                            "action" in item.action
+                          typeof item.action === "object" &&
+                          "action" in item.action
                             ? ` · action: ${(item.action as DnsRuleAction).action}`
                             : ""}
                           {item.clash_mode
@@ -370,7 +387,7 @@ export function DnsPage() {
                             size="sm"
                             onClick={() =>
                               setEditingRuleIndex(
-                                editingRuleIndex === i ? null : i
+                                editingRuleIndex === i ? null : i,
                               )
                             }
                           >
@@ -381,7 +398,13 @@ export function DnsPage() {
                             variant="ghost"
                             size="sm"
                             className="text-destructive"
-                            onClick={() => setDeleteConfirm({ open: true, kind: "rule", index: i })}
+                            onClick={() =>
+                              setDeleteConfirm({
+                                open: true,
+                                kind: "rule",
+                                index: i,
+                              })
+                            }
                           >
                             删除
                           </Button>
@@ -395,7 +418,7 @@ export function DnsPage() {
                         />
                       )}
                     </div>
-                  )
+                  );
                 })
               )}
             </div>
@@ -415,7 +438,7 @@ export function DnsPage() {
             <DialogTitle>添加 DNS 服务器</DialogTitle>
           </DialogHeader>
           <AddServerForm
-            server={{ tag: "", address: "" }}
+            server={{ type: "udp", tag: "", server: "" }}
             onSave={(server) => addServerAndSave(server)}
             onCancel={() => setAddServerOpen(false)}
           />
@@ -448,16 +471,16 @@ export function DnsPage() {
         }
         onConfirm={() => {
           if (deleteConfirm.kind === "server")
-            removeServerAndSave(deleteConfirm.index)
+            removeServerAndSave(deleteConfirm.index);
           else if (deleteConfirm.kind === "rule")
-            removeRuleAndSave(deleteConfirm.index)
+            removeRuleAndSave(deleteConfirm.index);
         }}
         confirmLabel="删除"
         cancelLabel="取消"
         variant="destructive"
       />
     </div>
-  )
+  );
 }
 
 function AddServerForm({
@@ -465,71 +488,63 @@ function AddServerForm({
   onSave,
   onCancel,
 }: {
-  server: DnsServer
-  onSave: (s: DnsServer) => void
-  onCancel: () => void
+  server: DnsServer;
+  onSave: (s: DnsServer) => void;
+  onCancel: () => void;
 }) {
-  const [tag, setTag] = useState(server.tag ?? "")
-  const [address, setAddress] = useState(server.address ?? "")
-  const [address_resolver, setAddressResolver] = useState(
-    server.address_resolver ?? ""
-  )
-  const [strategy, setStrategy] = useState(server.strategy ?? "")
-  const [detour, setDetour] = useState(server.detour ?? "")
+  const serverType = getDnsServerType(server);
+  const [type, setType] = useState(serverType);
+  const schema = DNS_SERVER_SCHEMA_BY_TYPE[type] ?? DNS_SERVER_SCHEMA_BY_TYPE.udp;
+  const [values, setValues] = useState<Record<string, unknown>>(() => {
+    const init: Record<string, unknown> = {};
+    for (const f of schema) {
+      const v = server[f.key as keyof DnsServer];
+      if (v !== undefined && v !== "") init[f.key] = v;
+    }
+    return init;
+  });
 
   const handleSave = () => {
-    onSave({
-      ...server,
-      tag: tag.trim() || undefined,
-      address: address.trim() || undefined,
-      address_resolver: address_resolver.trim() || undefined,
-      strategy: strategy.trim() ? strategy : undefined,
-      detour: detour.trim() || undefined,
-    })
-  }
+    const next: DnsServer = { type };
+    for (const f of schema) {
+      const v = values[f.key];
+      if (f.type === "number") {
+        const n = typeof v === "number" ? v : v === "" || v == null ? undefined : Number(String(v));
+        if (n !== undefined && !Number.isNaN(n)) next[f.key as keyof DnsServer] = n;
+      } else if (f.type === "boolean") {
+        next[f.key as keyof DnsServer] = Boolean(v);
+      } else if (typeof v === "string") {
+        const s = v.trim();
+        if (s) next[f.key as keyof DnsServer] = s;
+      }
+    }
+    onSave(next);
+  };
 
   return (
     <div className="grid gap-3">
       <div className="space-y-1">
-        <Label>{schemaLabel("LegacyDNSServer", ["tag"], "标签", "tag")}</Label>
-        <Input
-          value={tag}
-          onChange={(e) => setTag(e.target.value)}
-          placeholder="如 dns_proxys"
-        />
+        <Label>类型（type）</Label>
+        <Select
+          value={type}
+          onValueChange={(v) => {
+            setType(v);
+            setValues({});
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DNS_SERVER_TYPE_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="space-y-1">
-        <Label>{schemaLabel("LegacyDNSServer", ["address"], "地址", "address")}</Label>
-        <Input
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="如 https://1.1.1.1/dns-query"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label>{schemaLabel("LegacyDNSServer", ["address_resolver"], "用于解析地址的 DNS 服务器 tag", "address_resolver")}</Label>
-        <Input
-          value={address_resolver}
-          onChange={(e) => setAddressResolver(e.target.value)}
-          placeholder="可选"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label>{schemaLabel("LegacyDNSServer", ["strategy"], "默认解析策略", "strategy")}</Label>
-        <Input
-          value={strategy}
-          onChange={(e) => setStrategy(e.target.value)}
-          placeholder="prefer_ipv4 / ipv4_only 等"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label>{schemaLabel("LegacyDNSServer", ["detour"], "出站 tag", "detour")}</Label>
-        <Input
-          value={detour}
-          onChange={(e) => setDetour(e.target.value)}
-          placeholder="出站 tag"
-        />
-      </div>
+      <DnsServerFields schema={DNS_SERVER_SCHEMA_BY_TYPE[type] ?? DNS_SERVER_SCHEMA_BY_TYPE.udp} values={values} setValues={setValues} server={server} />
       <DialogFooter className="gap-2 sm:gap-0">
         <Button type="button" variant="outline" onClick={onCancel}>
           取消
@@ -539,7 +554,66 @@ function AddServerForm({
         </Button>
       </DialogFooter>
     </div>
-  )
+  );
+}
+
+function DnsServerFields({
+  schema,
+  values,
+  setValues,
+  server,
+}: {
+  schema: SchemaField[];
+  values: Record<string, unknown>;
+  setValues: React.Dispatch<React.SetStateAction<Record<string, unknown>>>;
+  server: DnsServer;
+}) {
+  return (
+    <div className="grid gap-3">
+      {schema.map((f) => {
+        const key = f.key;
+        const value = values[key] ?? server[key as keyof DnsServer] ?? (f.type === "boolean" ? false : "");
+        if (f.type === "boolean") {
+          return (
+            <div key={key} className="flex items-center gap-2">
+              <Switch
+                id={`dns-server-${key}`}
+                checked={Boolean(value)}
+                onCheckedChange={(c) => setValues((prev) => ({ ...prev, [key]: c }))}
+              />
+              <Label htmlFor={`dns-server-${key}`}>{f.label}</Label>
+            </div>
+          );
+        }
+        if (f.type === "number") {
+          return (
+            <div key={key} className="space-y-1">
+              <Label>{f.label}</Label>
+              <Input
+                type="number"
+                value={value === undefined || value === null ? "" : String(value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setValues((prev) => ({ ...prev, [key]: v === "" ? undefined : Number(v) }));
+                }}
+                placeholder={f.placeholder}
+              />
+            </div>
+          );
+        }
+        return (
+          <div key={key} className="space-y-1">
+            <Label>{f.label}</Label>
+            <Input
+              value={typeof value === "string" ? value : value == null ? "" : String(value)}
+              onChange={(e) => setValues((prev) => ({ ...prev, [key]: e.target.value }))}
+              placeholder={f.placeholder}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function AddRuleForm({
@@ -547,90 +621,129 @@ function AddRuleForm({
   onSave,
   onCancel,
 }: {
-  rule: DnsRule
-  onSave: (r: DnsRule) => void
-  onCancel: () => void
+  rule: DnsRule;
+  onSave: (r: DnsRule) => void;
+  onCancel: () => void;
 }) {
-  const act = rule.action
+  const act = rule.action;
   const actionKind =
     act && typeof act === "object" && "action" in act
       ? (act as DnsRuleAction).action
-      : "route"
+      : "route";
   const [actionType, setActionType] = useState<
     "route" | "route-options" | "reject" | "predefined"
-  >(actionKind)
+  >(actionKind);
   const [server, setServer] = useState(
-    rule.server ?? (actionKind === "route" && act && "server" in act ? (act as { server?: string }).server ?? "" : "")
-  )
+    rule.server ??
+      (actionKind === "route" && act && "server" in act
+        ? ((act as { server?: string }).server ?? "")
+        : ""),
+  );
   const [strategy, setStrategy] = useState(
-    actionKind === "route" && act && "strategy" in act ? String((act as { strategy?: string }).strategy ?? "") : ""
-  )
+    actionKind === "route" && act && "strategy" in act
+      ? String((act as { strategy?: string }).strategy ?? "")
+      : "",
+  );
   const [disable_cache, setDisableCache] = useState(
-    (act && "disable_cache" in act && (act as { disable_cache?: boolean }).disable_cache) ?? false
-  )
+    (act &&
+      "disable_cache" in act &&
+      (act as { disable_cache?: boolean }).disable_cache) ??
+      false,
+  );
   const [rewrite_ttl, setRewriteTtl] = useState(
-    act && "rewrite_ttl" in act ? String((act as { rewrite_ttl?: number | null }).rewrite_ttl ?? "") : ""
-  )
+    act && "rewrite_ttl" in act
+      ? String((act as { rewrite_ttl?: number | null }).rewrite_ttl ?? "")
+      : "",
+  );
   const [client_subnet, setClientSubnet] = useState(
-    act && "client_subnet" in act ? String((act as { client_subnet?: string | null }).client_subnet ?? "") : ""
-  )
+    act && "client_subnet" in act
+      ? String((act as { client_subnet?: string | null }).client_subnet ?? "")
+      : "",
+  );
   const [method, setMethod] = useState<"default" | "drop">(
     actionKind === "reject" && act && "method" in act
       ? ((act as { method?: "default" | "drop" }).method ?? "default")
-      : "default"
-  )
+      : "default",
+  );
   const [no_drop, setNoDrop] = useState(
-    actionKind === "reject" && act && "no_drop" in act ? Boolean((act as { no_drop?: boolean }).no_drop) : false
-  )
+    actionKind === "reject" && act && "no_drop" in act
+      ? Boolean((act as { no_drop?: boolean }).no_drop)
+      : false,
+  );
   const [rcode, setRcode] = useState(
-    actionKind === "predefined" && act && "rcode" in act ? String((act as { rcode?: string }).rcode ?? "") : "NOERROR"
-  )
+    actionKind === "predefined" && act && "rcode" in act
+      ? String((act as { rcode?: string }).rcode ?? "")
+      : "NOERROR",
+  );
   const [answer, setAnswer] = useState(
-    actionKind === "predefined" && act && "answer" in act ? arrToStr((act as { answer?: string[] }).answer) : ""
-  )
+    actionKind === "predefined" && act && "answer" in act
+      ? arrToStr((act as { answer?: string[] }).answer)
+      : "",
+  );
   const [ns, setNs] = useState(
-    actionKind === "predefined" && act && "ns" in act ? arrToStr((act as { ns?: string[] }).ns) : ""
-  )
+    actionKind === "predefined" && act && "ns" in act
+      ? arrToStr((act as { ns?: string[] }).ns)
+      : "",
+  );
   const [extra, setExtra] = useState(
-    actionKind === "predefined" && act && "extra" in act ? arrToStr((act as { extra?: string[] }).extra) : ""
-  )
-  const [clash_mode, setClashMode] = useState(rule.clash_mode ?? "")
-  const [rule_set, setRuleSet] = useState(arrToStr(rule.rule_set))
-  const [package_name, setPackageName] = useState(arrToStr(rule.package_name))
+    actionKind === "predefined" && act && "extra" in act
+      ? arrToStr((act as { extra?: string[] }).extra)
+      : "",
+  );
+  const [clash_mode, setClashMode] = useState(rule.clash_mode ?? "");
+  const [rule_set, setRuleSet] = useState(arrToStr(rule.rule_set));
+  const [package_name, setPackageName] = useState(arrToStr(rule.package_name));
 
   const handleSave = () => {
     const base: DnsRule = {
       ...rule,
       clash_mode: clash_mode || undefined,
       rule_set: strToArr(rule_set).length ? strToArr(rule_set) : undefined,
-      package_name: strToArr(package_name).length ? strToArr(package_name) : undefined,
-    }
+      package_name: strToArr(package_name).length
+        ? strToArr(package_name)
+        : undefined,
+    };
     if (actionType === "route") {
-      const s = server.trim()
-      base.server = s || undefined
-      if (strategy.trim() || disable_cache || rewrite_ttl.trim() || client_subnet.trim()) {
+      const s = server.trim();
+      base.server = s || undefined;
+      if (
+        strategy.trim() ||
+        disable_cache ||
+        rewrite_ttl.trim() ||
+        client_subnet.trim()
+      ) {
         base.action = {
           action: "route",
           server: s || "",
           ...(strategy.trim() && { strategy: strategy.trim() }),
           ...(disable_cache && { disable_cache: true }),
-          ...(rewrite_ttl.trim() && { rewrite_ttl: Number(rewrite_ttl) || null }),
-          ...(client_subnet.trim() && { client_subnet: client_subnet.trim() || null }),
-        }
+          ...(rewrite_ttl.trim() && {
+            rewrite_ttl: Number(rewrite_ttl) || null,
+          }),
+          ...(client_subnet.trim() && {
+            client_subnet: client_subnet.trim() || null,
+          }),
+        };
       } else {
-        delete base.action
+        delete base.action;
       }
     } else if (actionType === "route-options") {
       base.action = {
         action: "route-options",
         ...(disable_cache && { disable_cache: true }),
         ...(rewrite_ttl.trim() && { rewrite_ttl: Number(rewrite_ttl) || null }),
-        ...(client_subnet.trim() && { client_subnet: client_subnet.trim() || null }),
-      }
-      delete base.server
+        ...(client_subnet.trim() && {
+          client_subnet: client_subnet.trim() || null,
+        }),
+      };
+      delete base.server;
     } else if (actionType === "reject") {
-      base.action = { action: "reject", method, ...(no_drop && { no_drop: true }) }
-      delete base.server
+      base.action = {
+        action: "reject",
+        method,
+        ...(no_drop && { no_drop: true }),
+      };
+      delete base.server;
     } else {
       base.action = {
         action: "predefined",
@@ -638,14 +751,14 @@ function AddRuleForm({
         answer: strToArr(answer).length ? strToArr(answer) : undefined,
         ns: strToArr(ns).length ? strToArr(ns) : undefined,
         extra: strToArr(extra).length ? strToArr(extra) : undefined,
-      }
-      delete base.server
+      };
+      delete base.server;
     }
-    onSave(base)
-  }
+    onSave(base);
+  };
 
   const textareaClass =
-    "min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    "min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
   return (
     <div className="grid gap-3">
@@ -653,16 +766,28 @@ function AddRuleForm({
         <Label>{DNS_RULE_FIELD_LABELS.action}</Label>
         <Select
           value={actionType}
-          onValueChange={(v) => setActionType(v as "route" | "route-options" | "reject" | "predefined")}
+          onValueChange={(v) =>
+            setActionType(
+              v as "route" | "route-options" | "reject" | "predefined",
+            )
+          }
         >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="route">{DNS_RULE_FIELD_LABELS.action_route}</SelectItem>
-            <SelectItem value="route-options">{DNS_RULE_FIELD_LABELS.action_route_options}</SelectItem>
-            <SelectItem value="reject">{DNS_RULE_FIELD_LABELS.action_reject}</SelectItem>
-            <SelectItem value="predefined">{DNS_RULE_FIELD_LABELS.action_predefined}</SelectItem>
+            <SelectItem value="route">
+              {DNS_RULE_FIELD_LABELS.action_route}
+            </SelectItem>
+            <SelectItem value="route-options">
+              {DNS_RULE_FIELD_LABELS.action_route_options}
+            </SelectItem>
+            <SelectItem value="reject">
+              {DNS_RULE_FIELD_LABELS.action_reject}
+            </SelectItem>
+            <SelectItem value="predefined">
+              {DNS_RULE_FIELD_LABELS.action_predefined}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -686,7 +811,9 @@ function AddRuleForm({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="add-route-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+            <Label htmlFor="add-route-disable-cache">
+              {DNS_RULE_FIELD_LABELS.action_disable_cache}
+            </Label>
             <Switch
               id="add-route-disable-cache"
               checked={disable_cache}
@@ -716,7 +843,9 @@ function AddRuleForm({
       {actionType === "route-options" && (
         <>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="add-route-opt-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+            <Label htmlFor="add-route-opt-disable-cache">
+              {DNS_RULE_FIELD_LABELS.action_disable_cache}
+            </Label>
             <Switch
               id="add-route-opt-disable-cache"
               checked={disable_cache}
@@ -747,7 +876,10 @@ function AddRuleForm({
         <>
           <div className="space-y-1">
             <Label>{DNS_RULE_FIELD_LABELS.action_method}</Label>
-            <Select value={method} onValueChange={(v) => setMethod(v as "default" | "drop")}>
+            <Select
+              value={method}
+              onValueChange={(v) => setMethod(v as "default" | "drop")}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -758,7 +890,9 @@ function AddRuleForm({
             </Select>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="add-reject-no-drop">{DNS_RULE_FIELD_LABELS.action_no_drop}</Label>
+            <Label htmlFor="add-reject-no-drop">
+              {DNS_RULE_FIELD_LABELS.action_no_drop}
+            </Label>
             <Switch
               id="add-reject-no-drop"
               checked={no_drop}
@@ -843,7 +977,7 @@ function AddRuleForm({
         </Button>
       </DialogFooter>
     </div>
-  )
+  );
 }
 
 function ServerForm({
@@ -851,75 +985,76 @@ function ServerForm({
   onSave,
   onCancel,
 }: {
-  server: DnsServer
-  onSave: (s: DnsServer) => void
-  onCancel: () => void
+  server: DnsServer;
+  onSave: (s: DnsServer) => void;
+  onCancel: () => void;
 }) {
-  const [tag, setTag] = useState(server.tag ?? "")
-  const [address, setAddress] = useState(server.address ?? "")
-  const [address_resolver, setAddressResolver] = useState(
-    server.address_resolver ?? ""
-  )
-  const [strategy, setStrategy] = useState(server.strategy ?? "")
-  const [detour, setDetour] = useState(server.detour ?? "")
+  const serverType = getDnsServerType(server);
+  const [type, setType] = useState(serverType);
+  const schema = DNS_SERVER_SCHEMA_BY_TYPE[type] ?? DNS_SERVER_SCHEMA_BY_TYPE.udp;
+  const [values, setValues] = useState<Record<string, unknown>>(() => {
+    const init: Record<string, unknown> = {};
+    for (const f of schema) {
+      const v = server[f.key as keyof DnsServer];
+      if (v !== undefined && v !== "") init[f.key] = v;
+    }
+    if (type === serverType) {
+      for (const f of schema) {
+        if (init[f.key] === undefined) {
+          const v = server[f.key as keyof DnsServer];
+          init[f.key] = v !== undefined ? v : f.type === "boolean" ? false : "";
+        }
+      }
+    }
+    return init;
+  });
 
   const handleSave = () => {
-    onSave({
-      ...server,
-      tag: tag.trim() || undefined,
-      address: address.trim() || undefined,
-      address_resolver: address_resolver.trim() || undefined,
-      strategy: strategy.trim() ? strategy : undefined,
-      detour: detour.trim() || undefined,
-    })
-  }
+    const next: DnsServer = { type };
+    for (const f of schema) {
+      const v = values[f.key];
+      if (f.type === "number") {
+        const n = typeof v === "number" ? v : v === "" || v == null ? undefined : Number(String(v));
+        if (n !== undefined && !Number.isNaN(n)) next[f.key as keyof DnsServer] = n;
+      } else if (f.type === "boolean") {
+        next[f.key as keyof DnsServer] = Boolean(v);
+      } else if (typeof v === "string") {
+        const s = v.trim();
+        if (s) next[f.key as keyof DnsServer] = s;
+      }
+    }
+    onSave(next);
+  };
 
   return (
     <div className="grid gap-3 pt-2 border-t">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Label>{schemaLabel("LegacyDNSServer", ["tag"], "标签", "tag")}</Label>
-          <Input
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-            placeholder="如 dns_proxys"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>{schemaLabel("LegacyDNSServer", ["address"], "地址", "address")}</Label>
-          <Input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="如 https://1.1.1.1/dns-query"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Label>{schemaLabel("LegacyDNSServer", ["address_resolver"], "用于解析地址的 DNS 服务器 tag", "address_resolver")}</Label>
-          <Input
-            value={address_resolver}
-            onChange={(e) => setAddressResolver(e.target.value)}
-            placeholder="可选"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>{schemaLabel("LegacyDNSServer", ["strategy"], "默认解析策略", "strategy")}</Label>
-          <Input
-            value={strategy}
-            onChange={(e) => setStrategy(e.target.value)}
-            placeholder="prefer_ipv4 / ipv4_only 等"
-          />
-        </div>
-      </div>
       <div className="space-y-1">
-        <Label>{schemaLabel("LegacyDNSServer", ["detour"], "出站 tag", "detour")}</Label>
-        <Input
-          value={detour}
-          onChange={(e) => setDetour(e.target.value)}
-          placeholder="出站 tag"
-        />
+        <Label>类型（type）</Label>
+        <Select
+          value={type}
+          onValueChange={(v) => {
+            setType(v);
+            const newSchema = DNS_SERVER_SCHEMA_BY_TYPE[v] ?? DNS_SERVER_SCHEMA_BY_TYPE.udp;
+            const next: Record<string, unknown> = {};
+            for (const f of newSchema) {
+              next[f.key] = server[f.key as keyof DnsServer] ?? values[f.key] ?? (f.type === "boolean" ? false : "");
+            }
+            setValues(next);
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DNS_SERVER_TYPE_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+      <DnsServerFields schema={schema} values={values} setValues={setValues} server={server} />
       <div className="flex gap-2">
         <Button type="button" size="sm" onClick={handleSave}>
           保存
@@ -929,7 +1064,7 @@ function ServerForm({
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 function RuleForm({
@@ -937,90 +1072,129 @@ function RuleForm({
   onSave,
   onCancel,
 }: {
-  rule: DnsRule
-  onSave: (r: DnsRule) => void
-  onCancel: () => void
+  rule: DnsRule;
+  onSave: (r: DnsRule) => void;
+  onCancel: () => void;
 }) {
-  const act = rule.action
+  const act = rule.action;
   const actionKind =
     act && typeof act === "object" && "action" in act
       ? (act as DnsRuleAction).action
-      : "route"
+      : "route";
   const [actionType, setActionType] = useState<
     "route" | "route-options" | "reject" | "predefined"
-  >(actionKind)
+  >(actionKind);
   const [server, setServer] = useState(
-    rule.server ?? (actionKind === "route" && act && "server" in act ? (act as { server?: string }).server ?? "" : "")
-  )
+    rule.server ??
+      (actionKind === "route" && act && "server" in act
+        ? ((act as { server?: string }).server ?? "")
+        : ""),
+  );
   const [strategy, setStrategy] = useState(
-    actionKind === "route" && act && "strategy" in act ? String((act as { strategy?: string }).strategy ?? "") : ""
-  )
+    actionKind === "route" && act && "strategy" in act
+      ? String((act as { strategy?: string }).strategy ?? "")
+      : "",
+  );
   const [disable_cache, setDisableCache] = useState(
-    (act && "disable_cache" in act && (act as { disable_cache?: boolean }).disable_cache) ?? false
-  )
+    (act &&
+      "disable_cache" in act &&
+      (act as { disable_cache?: boolean }).disable_cache) ??
+      false,
+  );
   const [rewrite_ttl, setRewriteTtl] = useState(
-    act && "rewrite_ttl" in act ? String((act as { rewrite_ttl?: number | null }).rewrite_ttl ?? "") : ""
-  )
+    act && "rewrite_ttl" in act
+      ? String((act as { rewrite_ttl?: number | null }).rewrite_ttl ?? "")
+      : "",
+  );
   const [client_subnet, setClientSubnet] = useState(
-    act && "client_subnet" in act ? String((act as { client_subnet?: string | null }).client_subnet ?? "") : ""
-  )
+    act && "client_subnet" in act
+      ? String((act as { client_subnet?: string | null }).client_subnet ?? "")
+      : "",
+  );
   const [method, setMethod] = useState<"default" | "drop">(
     actionKind === "reject" && act && "method" in act
       ? ((act as { method?: "default" | "drop" }).method ?? "default")
-      : "default"
-  )
+      : "default",
+  );
   const [no_drop, setNoDrop] = useState(
-    actionKind === "reject" && act && "no_drop" in act ? Boolean((act as { no_drop?: boolean }).no_drop) : false
-  )
+    actionKind === "reject" && act && "no_drop" in act
+      ? Boolean((act as { no_drop?: boolean }).no_drop)
+      : false,
+  );
   const [rcode, setRcode] = useState(
-    actionKind === "predefined" && act && "rcode" in act ? String((act as { rcode?: string }).rcode ?? "") : "NOERROR"
-  )
+    actionKind === "predefined" && act && "rcode" in act
+      ? String((act as { rcode?: string }).rcode ?? "")
+      : "NOERROR",
+  );
   const [answer, setAnswer] = useState(
-    actionKind === "predefined" && act && "answer" in act ? arrToStr((act as { answer?: string[] }).answer) : ""
-  )
+    actionKind === "predefined" && act && "answer" in act
+      ? arrToStr((act as { answer?: string[] }).answer)
+      : "",
+  );
   const [ns, setNs] = useState(
-    actionKind === "predefined" && act && "ns" in act ? arrToStr((act as { ns?: string[] }).ns) : ""
-  )
+    actionKind === "predefined" && act && "ns" in act
+      ? arrToStr((act as { ns?: string[] }).ns)
+      : "",
+  );
   const [extra, setExtra] = useState(
-    actionKind === "predefined" && act && "extra" in act ? arrToStr((act as { extra?: string[] }).extra) : ""
-  )
-  const [clash_mode, setClashMode] = useState(rule.clash_mode ?? "")
-  const [rule_set, setRuleSet] = useState(arrToStr(rule.rule_set))
-  const [package_name, setPackageName] = useState(arrToStr(rule.package_name))
+    actionKind === "predefined" && act && "extra" in act
+      ? arrToStr((act as { extra?: string[] }).extra)
+      : "",
+  );
+  const [clash_mode, setClashMode] = useState(rule.clash_mode ?? "");
+  const [rule_set, setRuleSet] = useState(arrToStr(rule.rule_set));
+  const [package_name, setPackageName] = useState(arrToStr(rule.package_name));
 
   const handleSave = () => {
     const base: DnsRule = {
       ...rule,
       clash_mode: clash_mode || undefined,
       rule_set: strToArr(rule_set).length ? strToArr(rule_set) : undefined,
-      package_name: strToArr(package_name).length ? strToArr(package_name) : undefined,
-    }
+      package_name: strToArr(package_name).length
+        ? strToArr(package_name)
+        : undefined,
+    };
     if (actionType === "route") {
-      const s = server.trim()
-      base.server = s || undefined
-      if (strategy.trim() || disable_cache || rewrite_ttl.trim() || client_subnet.trim()) {
+      const s = server.trim();
+      base.server = s || undefined;
+      if (
+        strategy.trim() ||
+        disable_cache ||
+        rewrite_ttl.trim() ||
+        client_subnet.trim()
+      ) {
         base.action = {
           action: "route",
           server: s || "",
           ...(strategy.trim() && { strategy: strategy.trim() }),
           ...(disable_cache && { disable_cache: true }),
-          ...(rewrite_ttl.trim() && { rewrite_ttl: Number(rewrite_ttl) || null }),
-          ...(client_subnet.trim() && { client_subnet: client_subnet.trim() || null }),
-        }
+          ...(rewrite_ttl.trim() && {
+            rewrite_ttl: Number(rewrite_ttl) || null,
+          }),
+          ...(client_subnet.trim() && {
+            client_subnet: client_subnet.trim() || null,
+          }),
+        };
       } else {
-        delete base.action
+        delete base.action;
       }
     } else if (actionType === "route-options") {
       base.action = {
         action: "route-options",
         ...(disable_cache && { disable_cache: true }),
         ...(rewrite_ttl.trim() && { rewrite_ttl: Number(rewrite_ttl) || null }),
-        ...(client_subnet.trim() && { client_subnet: client_subnet.trim() || null }),
-      }
-      delete base.server
+        ...(client_subnet.trim() && {
+          client_subnet: client_subnet.trim() || null,
+        }),
+      };
+      delete base.server;
     } else if (actionType === "reject") {
-      base.action = { action: "reject", method, ...(no_drop && { no_drop: true }) }
-      delete base.server
+      base.action = {
+        action: "reject",
+        method,
+        ...(no_drop && { no_drop: true }),
+      };
+      delete base.server;
     } else {
       base.action = {
         action: "predefined",
@@ -1028,14 +1202,14 @@ function RuleForm({
         answer: strToArr(answer).length ? strToArr(answer) : undefined,
         ns: strToArr(ns).length ? strToArr(ns) : undefined,
         extra: strToArr(extra).length ? strToArr(extra) : undefined,
-      }
-      delete base.server
+      };
+      delete base.server;
     }
-    onSave(base)
-  }
+    onSave(base);
+  };
 
   const textareaClass =
-    "min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    "min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
   return (
     <div className="grid gap-3 pt-2 border-t">
@@ -1043,16 +1217,28 @@ function RuleForm({
         <Label>{DNS_RULE_FIELD_LABELS.action}</Label>
         <Select
           value={actionType}
-          onValueChange={(v) => setActionType(v as "route" | "route-options" | "reject" | "predefined")}
+          onValueChange={(v) =>
+            setActionType(
+              v as "route" | "route-options" | "reject" | "predefined",
+            )
+          }
         >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="route">{DNS_RULE_FIELD_LABELS.action_route}</SelectItem>
-            <SelectItem value="route-options">{DNS_RULE_FIELD_LABELS.action_route_options}</SelectItem>
-            <SelectItem value="reject">{DNS_RULE_FIELD_LABELS.action_reject}</SelectItem>
-            <SelectItem value="predefined">{DNS_RULE_FIELD_LABELS.action_predefined}</SelectItem>
+            <SelectItem value="route">
+              {DNS_RULE_FIELD_LABELS.action_route}
+            </SelectItem>
+            <SelectItem value="route-options">
+              {DNS_RULE_FIELD_LABELS.action_route_options}
+            </SelectItem>
+            <SelectItem value="reject">
+              {DNS_RULE_FIELD_LABELS.action_reject}
+            </SelectItem>
+            <SelectItem value="predefined">
+              {DNS_RULE_FIELD_LABELS.action_predefined}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1078,7 +1264,9 @@ function RuleForm({
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="rule-route-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+            <Label htmlFor="rule-route-disable-cache">
+              {DNS_RULE_FIELD_LABELS.action_disable_cache}
+            </Label>
             <Switch
               id="rule-route-disable-cache"
               checked={disable_cache}
@@ -1110,7 +1298,9 @@ function RuleForm({
       {actionType === "route-options" && (
         <>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="rule-route-opt-disable-cache">{DNS_RULE_FIELD_LABELS.action_disable_cache}</Label>
+            <Label htmlFor="rule-route-opt-disable-cache">
+              {DNS_RULE_FIELD_LABELS.action_disable_cache}
+            </Label>
             <Switch
               id="rule-route-opt-disable-cache"
               checked={disable_cache}
@@ -1143,7 +1333,10 @@ function RuleForm({
         <>
           <div className="space-y-1">
             <Label>{DNS_RULE_FIELD_LABELS.action_method}</Label>
-            <Select value={method} onValueChange={(v) => setMethod(v as "default" | "drop")}>
+            <Select
+              value={method}
+              onValueChange={(v) => setMethod(v as "default" | "drop")}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -1154,7 +1347,9 @@ function RuleForm({
             </Select>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="rule-reject-no-drop">{DNS_RULE_FIELD_LABELS.action_no_drop}</Label>
+            <Label htmlFor="rule-reject-no-drop">
+              {DNS_RULE_FIELD_LABELS.action_no_drop}
+            </Label>
             <Switch
               id="rule-reject-no-drop"
               checked={no_drop}
@@ -1239,5 +1434,5 @@ function RuleForm({
         </Button>
       </div>
     </div>
-  )
+  );
 }

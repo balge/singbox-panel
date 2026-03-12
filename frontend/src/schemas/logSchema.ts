@@ -32,22 +32,11 @@ const LOG_LEVEL_OPTIONS = [
   { value: "panic", label: "panic" },
 ] as const
 
-/** 从 API 返回的 JSON 合并为 LogConfig */
+/** 从 API 返回的 JSON 转为 LogConfig（仅对缺失键填默认值） */
 export function mergeLogFromJson(obj: unknown): LogConfig {
   if (!obj || typeof obj !== "object" || Array.isArray(obj))
     return { ...DEFAULT_LOG }
-  const o = obj as Record<string, unknown>
-  return {
-    disabled:
-      typeof o.disabled === "boolean" ? o.disabled : DEFAULT_LOG.disabled,
-    level:
-      typeof o.level === "string" && LOG_LEVEL_OPTIONS.some((opt) => opt.value === o.level)
-        ? (o.level as LogConfig["level"])
-        : DEFAULT_LOG.level,
-    output: typeof o.output === "string" ? o.output : DEFAULT_LOG.output,
-    timestamp:
-      typeof o.timestamp === "boolean" ? o.timestamp : DEFAULT_LOG.timestamp,
-  }
+  return { ...DEFAULT_LOG, ...(obj as Record<string, unknown>) } as LogConfig
 }
 
 /** 使用 @black-duty/sing-box-schema 校验 log 配置；保存前调用 */

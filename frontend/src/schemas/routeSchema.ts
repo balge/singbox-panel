@@ -21,16 +21,17 @@ export const DEFAULT_ROUTE: RouteConfig = {
   rule_set: [],
 }
 
-/** 从 API 返回的 JSON 合并为 RouteConfig */
+/** 从 API 返回的 JSON 转为 RouteConfig（仅对缺失键填默认值） */
 export function mergeRouteFromJson(obj: unknown): RouteConfig {
   if (!obj || typeof obj !== "object" || Array.isArray(obj))
     return { ...DEFAULT_ROUTE }
   const o = obj as Record<string, unknown>
   return {
-    final: typeof o.final === "string" ? o.final : DEFAULT_ROUTE.final,
-    rules: Array.isArray(o.rules) ? o.rules : DEFAULT_ROUTE.rules ?? [],
-    rule_set: Array.isArray(o.rule_set) ? o.rule_set : DEFAULT_ROUTE.rule_set ?? [],
-  }
+    ...DEFAULT_ROUTE,
+    ...o,
+    rules: Array.isArray(o.rules) ? o.rules : (DEFAULT_ROUTE.rules ?? []),
+    rule_set: Array.isArray(o.rule_set) ? o.rule_set : (DEFAULT_ROUTE.rule_set ?? []),
+  } as RouteConfig
 }
 
 /** 使用 @black-duty/sing-box-schema 校验 route 配置；保存前调用 */
